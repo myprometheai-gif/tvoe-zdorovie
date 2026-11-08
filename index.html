@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ТВОЁ ЗДОРОВЬЕ</title>
+<style>
+  :root {
+    --bg: #f5f7f8;
+    --panel: #ffffff;
+    --text: #1c2530;
+    --muted: #6b7785;
+    --accent: #2f8f6f;
+    --border: #e1e6e9;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  header {
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+  }
+  header h1 { font-size: 18px; margin: 0; }
+  #signin-area button, .controls button {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  #signin-area button:hover, .controls button:hover { opacity: 0.9; }
+  #status { font-size: 13px; color: var(--muted); margin-left: 10px; }
+
+  #app { display: none; padding: 20px; max-width: 1000px; margin: 0 auto; }
+  #app.ready { display: block; }
+
+  .layout {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  #figure-wrap {
+    flex: 1 1 380px;
+    background: var(--panel);
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    padding: 16px;
+    position: relative;
+    min-height: 420px;
+  }
+  #figure-viewport {
+    width: 100%;
+    height: 420px;
+    cursor: grab;
+  }
+  #figure-viewport canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  #figure-hint {
+    position: absolute;
+    left: 24px;
+    bottom: 10px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  #zone-tip {
+    display: none;
+    position: absolute;
+    top: 14px;
+    left: 24px;
+    background: #1c2530;
+    color: #fff;
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    pointer-events: none;
+  }
+
+  #side-panel {
+    flex: 0 0 260px;
+    background: var(--panel);
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    padding: 16px;
+    min-height: 420px;
+  }
+  #side-panel h2 { font-size: 15px; margin: 0 0 10px; }
+  #med-list { list-style: none; margin: 0; padding: 0; }
+  #med-list li {
+    padding: 8px 10px;
+    background: #f0f4f3;
+    border-radius: 8px;
+    margin-bottom: 6px;
+    font-size: 13px;
+    transition: opacity 0.2s ease;
+  }
+  #med-list .empty { color: var(--muted); background: none; padding-left: 0; }
+
+  #hidden-zones { margin-top: 10px; font-size: 12px; color: var(--muted); }
+  #hidden-zones .tag {
+    display: inline-block;
+    background: #fdece0;
+    color: #b5551a;
+    border-radius: 6px;
+    padding: 2px 6px;
+    margin: 2px 4px 0 0;
+  }
+
+  .controls {
+    margin-top: 18px;
+    background: var(--panel);
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    padding: 16px 20px;
+  }
+  .date-label { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
+  .note-text { font-size: 13px; color: var(--muted); margin-bottom: 10px; min-height: 18px; }
+  #day-slider { width: 100%; }
+  .tick-row { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .play-row { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+  .play-row label { font-size: 12px; color: var(--muted); }
+  #speed { width: 140px; }
+
+  #login-screen { padding: 60px 20px; text-align: center; }
+  #login-screen p { color: var(--muted); max-width: 420px; margin: 10px auto 20px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🩺 ТВОЁ ЗДОРОВЬЕ — v2 (3D-карта тела)</h1>
+  <div id="signin-area">
+    <button id="signin-btn">Войти через Google</button>
+    <span id="status"></span>
+  </div>
+</header>
+
+<div id="login-screen">
+  <p>Данные приватны — приложение читает твою личную таблицу «Дневник здоровья» только после того, как ты сам(а) авторизуешься через Google. Никто другой это увидеть не может.</p>
+</div>
+
+<div id="app">
+  <div class="layout">
+    <div id="figure-wrap">
+      <div id="zone-tip"></div>
+      <div id="figure-viewport"></div>
+      <div id="figure-hint">вращать — потянуть мышью/пальцем · зум — колесо/щипок</div>
+    </div>
+
+    <div id="side-panel">
+      <h2>💊 Лекарства в этот день</h2>
+      <ul id="med-list"><li class="empty">загрузка…</li></ul>
+      <div id="hidden-zones"></div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="date-label" id="date-label">—</div>
+    <div class="note-text" id="note-text"></div>
+    <input type="range" id="day-slider" min="0" max="0" value="0" list="ticks">
+    <datalist id="ticks"></datalist>
+    <div class="tick-row" id="tick-row"></div>
+    <div class="play-row">
+      <button id="play-btn">▶ Play</button>
+      <label for="speed">скорость смены дней</label>
+      <input type="range" id="speed" min="100" max="1500" step="100" value="600">
+    </div>
+  </div>
+</div>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js";
+
+// === Настройки — заполнить после создания OAuth Client ID в Google Cloud Console ===
+const CLIENT_ID = "ВСТАВЬ_СЮДА_СВОЙ_CLIENT_ID.apps.googleusercontent.com";
+const SPREADSHEET_ID = "1UwAxqE2HfZPMFh08KfOiqz17jthhmpXqqBsCyyKo7wQ";
+const SHEET_RANGE = "Лист1!A1:M1000";
+const SCOPES = "https://www.googleapis.com/auth/spreadsheets.readonly";
+
+// === Зоны тела на 3D-манекене (v2 — спереди и сзади, манекен вращается) ===
+const VISIBLE_ZONES = ["голова", "горло", "грудь", "живот", "рука-лев", "рука-прав", "нога-лев", "нога-прав", "спина", "поясница"];
+
+// Грубое сопоставление ключевых слов -> зона. Не ИИ-анализ, просто наивный
+// поиск подстрок в свободном тексте (Заметки/Самочувствие/Тренировка/Лекарства).
+// Список специально короткий для v1 — расширять по мере реальных записей.
+const ZONE_KEYWORDS = {
+  "голова": ["голова", "мигрень", "висок", "голов"],
+  "горло":  ["горло", "кашел", "чих", "простуд", "насморк", "заложенност"],
+  "грудь":  ["груд", "лёгк", "легк", "одышк"],
+  "живот":  ["живот", "жкт", "желудок", "тошнит", "понос", "запор", "подреберь"],
+  "рука-лев":  ["лева рук", "левой рук", "левая рук"],
+  "рука-прав": ["права рук", "правой рук", "правая рук"],
+  "рука":   ["рука", "локоть", "плечо", "запясть"],
+  "нога-лев":  ["лева ног", "левой ног", "левая ног"],
+  "нога-прав": ["права ног", "правой ног", "правая ног"],
+  "нога":   ["нога", "колен", "стопа", "лодыжк"],
+  "спина":     ["спина", "спине"],
+  "поясница":  ["поясниц"],
+};
+
+function classifyZones(text) {
+  const t = text.toLowerCase();
+  const found = new Set();
+  for (const [zone, words] of Object.entries(ZONE_KEYWORDS)) {
+    for (const w of words) {
+      if (t.includes(w)) { found.add(zone); break; }
+    }
+  }
+  // "рука"/"нога" без стороны — подсвечиваем обе стороны
+  if (found.has("рука")) { found.add("рука-лев"); found.add("рука-прав"); found.delete("рука"); }
+  if (found.has("нога")) { found.add("нога-лев"); found.add("нога-прав"); found.delete("нога"); }
+  return found;
+}
+
+// ---------- state ----------
+let accessToken = null;
+let rows = [];      // [{date: 'ДД.ММ.ГГГГ', заметки, самочувствие, тренировка, лекарства}]
+let sortedDates = [];
+let playTimer = null;
+
+// ---------- 3D-манекен ----------
+let scene, camera, renderer, controls, hotspots = [];
+
+function init3D() {
+  const viewport = document.getElementById("figure-viewport");
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(45, viewport.clientWidth / viewport.clientHeight, 0.1, 100);
+  camera.position.set(0, 1.8, 4.2);
+
+  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.setSize(viewport.clientWidth, viewport.clientHeight);
+  viewport.appendChild(renderer.domElement);
+
+  scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+  const dir = new THREE.DirectionalLight(0xffffff, 0.6);
+  dir.position.set(2, 4, 3);
+  scene.add(dir);
+
+  controls = new OrbitControls(camera, renderer.domElement);
+  controls.target.set(0, 1.6, 0);
+  controls.enablePan = false;
+  controls.minDistance = 2;
+  controls.maxDistance = 7;
+  controls.update();
+
+  scene.add(buildManikin());
+
+  window.addEventListener("resize", onResize);
+  renderer.domElement.addEventListener("pointerdown", onPointerDown);
+  renderer.domElement.addEventListener("pointerup", onPointerUp);
+
+  animate();
+}
+
+function buildManikin() {
+  const group = new THREE.Group();
+  const skin = new THREE.MeshStandardMaterial({ color: 0xe3c9b0, roughness: 0.85 });
+  const add = (geo, x, y, z) => { const m = new THREE.Mesh(geo, skin); m.position.set(x, y, z); group.add(m); };
+
+  add(new THREE.SphereGeometry(0.34, 20, 20), 0, 2.72, 0);                 // голова
+  add(new THREE.CylinderGeometry(0.16, 0.2, 0.3, 12), 0, 2.35, 0);         // шея
+  add(new THREE.CapsuleGeometry(0.42, 0.6, 4, 12), 0, 1.95, 0);            // грудь
+  add(new THREE.CapsuleGeometry(0.38, 0.35, 4, 12), 0, 1.48, 0);           // живот/таз
+  add(new THREE.CapsuleGeometry(0.11, 0.9, 4, 10), -0.6, 1.75, 0);         // рука-лев
+  add(new THREE.CapsuleGeometry(0.11, 0.9, 4, 10), 0.6, 1.75, 0);          // рука-прав
+  add(new THREE.CapsuleGeometry(0.16, 1.3, 4, 10), -0.22, 0.65, 0);        // нога-лев
+  add(new THREE.CapsuleGeometry(0.16, 1.3, 4, 10), 0.22, 0.65, 0);         // нога-прав
+
+  addHotspot(group, "голова", 0, 2.72, 0.32);
+  addHotspot(group, "горло", 0, 2.4, 0.2);
+  addHotspot(group, "грудь", 0, 2.1, 0.42);
+  addHotspot(group, "живот", 0, 1.55, 0.38);
+  addHotspot(group, "рука-лев", -0.6, 1.55, 0.1);
+  addHotspot(group, "рука-прав", 0.6, 1.55, 0.1);
+  addHotspot(group, "нога-лев", -0.22, 0.4, 0.22);
+  addHotspot(group, "нога-прав", 0.22, 0.4, 0.22);
+  addHotspot(group, "спина", 0, 2.0, -0.4);
+  addHotspot(group, "поясница", 0, 1.45, -0.38);
+
+  return group;
+}
+
+function addHotspot(group, zone, x, y, z) {
+  const mat = new THREE.MeshStandardMaterial({ color: 0xd9e2e6 });
+  const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.075, 12, 12), mat);
+  mesh.position.set(x, y, z);
+  mesh.userData.zone = zone;
+  group.add(mesh);
+  hotspots.push(mesh);
+}
+
+let downPos = null;
+function onPointerDown(e) { downPos = { x: e.clientX, y: e.clientY }; }
+function onPointerUp(e) {
+  if (!downPos) return;
+  const moved = Math.hypot(e.clientX - downPos.x, e.clientY - downPos.y);
+  downPos = null;
+  if (moved > 6) return; // был поворот/зум, не клик по зоне
+  pickZone(e);
+}
+
+function pickZone(e) {
+  const rect = renderer.domElement.getBoundingClientRect();
+  const mouse = new THREE.Vector2(
+    ((e.clientX - rect.left) / rect.width) * 2 - 1,
+    -((e.clientY - rect.top) / rect.height) * 2 + 1
+  );
+  const raycaster = new THREE.Raycaster();
+  raycaster.setFromCamera(mouse, camera);
+  const hits = raycaster.intersectObjects(hotspots);
+  const tip = document.getElementById("zone-tip");
+  if (hits.length) {
+    tip.textContent = hits[0].object.userData.zone;
+    tip.style.display = "block";
+  } else {
+    tip.style.display = "none";
+  }
+}
+
+function onResize() {
+  const viewport = document.getElementById("figure-viewport");
+  camera.aspect = viewport.clientWidth / viewport.clientHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(viewport.clientWidth, viewport.clientHeight);
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+// ---------- OAuth ----------
+function initSignin() {
+  const client = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID,
+    scope: SCOPES,
+    callback: (resp) => {
+      if (resp.error) { document.getElementById("status").textContent = "Ошибка входа: " + resp.error; return; }
+      accessToken = resp.access_token;
+      document.getElementById("status").textContent = "Вход выполнен";
+      loadData();
+    },
+  });
+  document.getElementById("signin-btn").addEventListener("click", () => client.requestAccessToken());
+}
+
+// ---------- data ----------
+async function loadData() {
+  document.getElementById("status").textContent = "Загружаю таблицу…";
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(SHEET_RANGE)}`;
+  const resp = await fetch(url, { headers: { Authorization: "Bearer " + accessToken } });
+  if (!resp.ok) {
+    document.getElementById("status").textContent = "Ошибка чтения таблицы (" + resp.status + ")";
+    return;
+  }
+  const data = await resp.json();
+  const values = data.values || [];
+  const header = values[0] || [];
+  const idx = (name) => header.indexOf(name);
+  const iDate = idx("Дата"), iNotes = idx("Заметки"), iFeel = idx("Самочувствие"),
+        iTrain = idx("Тренировка"), iMeds = idx("Лекарства");
+
+  rows = values.slice(1)
+    .filter(r => r[iDate])
+    .map(r => ({
+      date: r[iDate],
+      заметки: r[iNotes] || "",
+      самочувствие: r[iFeel] || "",
+      тренировка: r[iTrain] || "",
+      лекарства: r[iMeds] || "",
+    }));
+
+  // сортировка по дате (формат ДД.ММ.ГГГГ)
+  rows.sort((a, b) => toISO(a.date).localeCompare(toISO(b.date)));
+  sortedDates = rows.map(r => r.date);
+
+  document.getElementById("status").textContent = `Загружено дней: ${rows.length}`;
+  document.getElementById("login-screen").style.display = "none";
+  document.getElementById("app").classList.add("ready");
+  onResize(); // до этого момента #figure-viewport был display:none и имел нулевой размер
+
+  setupSlider();
+  renderDay(rows.length - 1);
+}
+
+function toISO(ddmmyyyy) {
+  const [d, m, y] = ddmmyyyy.split(".");
+  return `${y}-${m}-${d}`;
+}
+
+// ---------- rendering ----------
+function renderDay(i) {
+  if (!rows.length) return;
+  i = Math.max(0, Math.min(rows.length - 1, i));
+  const row = rows[i];
+  document.getElementById("date-label").textContent = row.date;
+
+  const combinedText = [row.заметки, row.самочувствие, row.тренировка].join(" ");
+  const zones = classifyZones(combinedText);
+
+  hotspots.forEach(h => {
+    const active = zones.has(h.userData.zone);
+    h.material.color.set(active ? 0xff8a3d : 0xd9e2e6);
+    h.scale.setScalar(active ? 1.7 : 1);
+  });
+
+  const hidden = [...zones].filter(z => !VISIBLE_ZONES.includes(z));
+  const hiddenBox = document.getElementById("hidden-zones");
+  hiddenBox.innerHTML = hidden.length
+    ? "Вне манекена (пока без точки): " + hidden.map(z => `<span class="tag">${z}</span>`).join("")
+    : "";
+
+  document.getElementById("note-text").textContent = row.заметки || row.самочувствие || "(нет записей за день)";
+
+  const medList = document.getElementById("med-list");
+  medList.innerHTML = "";
+  const meds = (row.лекарства || "").split("\n").map(s => s.trim()).filter(Boolean);
+  if (!meds.length) {
+    medList.innerHTML = '<li class="empty">лекарств не отмечено</li>';
+  } else {
+    meds.forEach(m => {
+      const li = document.createElement("li");
+      li.textContent = m;
+      medList.appendChild(li);
+    });
+  }
+
+  document.getElementById("day-slider").value = i;
+}
+
+// ---------- slider + play ----------
+function setupSlider() {
+  const slider = document.getElementById("day-slider");
+  slider.max = rows.length - 1;
+  slider.value = rows.length - 1;
+  slider.addEventListener("input", () => renderDay(Number(slider.value)));
+
+  // метки недель/месяцев на шкале
+  const ticks = document.getElementById("ticks");
+  const tickRow = document.getElementById("tick-row");
+  ticks.innerHTML = "";
+  tickRow.innerHTML = "";
+  rows.forEach((r, i) => {
+    const [d, m] = r.date.split(".");
+    if (d === "01" || i === 0 || i === rows.length - 1) {
+      const opt = document.createElement("option");
+      opt.value = i;
+      ticks.appendChild(opt);
+      const span = document.createElement("span");
+      span.textContent = r.date;
+      tickRow.appendChild(span);
+    }
+  });
+
+  document.getElementById("play-btn").addEventListener("click", togglePlay);
+}
+
+function togglePlay() {
+  const btn = document.getElementById("play-btn");
+  if (playTimer) {
+    clearInterval(playTimer);
+    playTimer = null;
+    btn.textContent = "▶ Play";
+    return;
+  }
+  btn.textContent = "⏸ Пауза";
+  const slider = document.getElementById("day-slider");
+  playTimer = setInterval(() => {
+    let next = Number(slider.value) + 1;
+    if (next > rows.length - 1) { next = 0; }
+    renderDay(next);
+  }, Number(document.getElementById("speed").value));
+}
+
+document.getElementById("speed").addEventListener("input", () => {
+  if (playTimer) { togglePlay(); togglePlay(); } // перезапуск с новой скоростью
+});
+
+// ---------- init ----------
+init3D();
+window.addEventListener("load", initSignin);
+</script>
+</body>
+</html>
