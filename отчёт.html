@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ТВОЁ ЗДОРОВЬЕ — отчёт для врача</title>
+<style>
+  :root{
+    --bg:#eef1f3; --panel:#fff; --text:#1c2530; --muted:#6b7785;
+    --accent:#2f8f6f; --border:#e1e6e9; --feel:#ff8a3d; --diag:#2f8f6f;
+    --grid:#eef2f4;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);}
+  .wrap{max-width:900px;margin:0 auto;padding:18px;}
+
+  /* панель управления (не печатается) */
+  .toolbar{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:16px;}
+  .toolbar .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+  .toolbar .row + .row{margin-top:10px;}
+  .period-btn{border:1px solid var(--border);background:#f6f8f9;color:var(--text);border-radius:20px;padding:6px 14px;font-size:13px;cursor:pointer;}
+  .period-btn.active{background:#1c2530;color:#fff;border-color:#1c2530;}
+  .toolbar label{font-size:12px;color:var(--muted);}
+  input[type=date]{font-size:13px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;}
+  .apply-btn{background:#f6f8f9;border:1px solid var(--border);border-radius:6px;padding:5px 10px;font-size:13px;cursor:pointer;}
+  .print-btn{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:14px;cursor:pointer;margin-left:auto;}
+  #signin-area{margin-left:auto;}
+  #signin-area button{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:14px;cursor:pointer;}
+  #status{font-size:12px;color:var(--muted);}
+
+  /* документ-отчёт */
+  .doc{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:26px 30px;}
+  .doc h1{font-size:22px;margin:0 0 2px;}
+  .doc .sub{font-size:13px;color:var(--muted);margin-bottom:2px;}
+  .meta{display:flex;flex-wrap:wrap;gap:6px 22px;font-size:13px;margin:12px 0 6px;padding:10px 14px;background:#f6f8f9;border-radius:8px;}
+  .meta b{color:var(--text);}
+  section{margin-top:22px;page-break-inside:avoid;}
+  section > h2{font-size:16px;margin:0 0 10px;padding-bottom:6px;border-bottom:2px solid var(--border);}
+
+  .sys-card{border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;page-break-inside:avoid;}
+  .sys-card h3{font-size:14px;margin:0 0 8px;}
+  .rec{display:flex;gap:8px;font-size:13px;padding:5px 0;border-top:1px dashed var(--border);}
+  .rec:first-of-type{border-top:none;}
+  .rec .zone{font-weight:600;min-width:120px;}
+  .rec .body{flex:1;}
+  .rec .dates{color:var(--muted);font-size:12px;white-space:nowrap;}
+  .tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:10px;color:#fff;vertical-align:middle;}
+  .tag.feel{background:var(--feel);}
+  .tag.diag{background:var(--diag);}
+  .muted{color:var(--muted);font-size:13px;}
+
+  /* лекарства */
+  table.meds{width:100%;border-collapse:collapse;font-size:13px;}
+  table.meds td{padding:5px 8px;border-bottom:1px solid var(--border);vertical-align:top;}
+  table.meds td.d{color:var(--muted);white-space:nowrap;width:110px;}
+
+  /* динамика small multiples */
+  .charts{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;}
+  .chart{border:1px solid var(--border);border-radius:10px;padding:12px 14px;page-break-inside:avoid;}
+  .chart .ct{font-size:13px;font-weight:600;margin-bottom:2px;}
+  .chart .cs{font-size:12px;color:var(--muted);margin-bottom:6px;}
+  .chart svg{display:block;width:100%;height:auto;}
+
+  .sleep-grid{display:flex;flex-wrap:wrap;gap:14px;}
+  .stat{flex:1 1 150px;background:#f6f8f9;border-radius:10px;padding:12px 14px;}
+  .stat .n{font-size:22px;font-weight:700;}
+  .stat .l{font-size:12px;color:var(--muted);}
+
+  .footnote{margin-top:24px;font-size:11px;color:var(--muted);border-top:1px solid var(--border);padding-top:10px;}
+  #empty{display:none;padding:40px;text-align:center;color:var(--muted);}
+
+  @media print{
+    body{background:#fff;}
+    .wrap{max-width:none;padding:0;}
+    .toolbar{display:none !important;}
+    .doc{border:none;border-radius:0;padding:0;}
+    @page{size:A4;margin:14mm;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="toolbar">
+    <div class="row">
+      <a href="index.html" style="text-decoration:none;color:#2f8f6f;font-size:14px;">← В дневник</a>
+      <strong style="font-size:15px;">🩺 Отчёт для врача</strong>
+      <span id="signin-area"><button id="signin-btn">Войти через Google</button></span>
+      <span id="status"></span>
+    </div>
+    <div class="row" id="period-row">
+      <label>Период:</label>
+      <button class="period-btn" data-days="7">Неделя</button>
+      <button class="period-btn active" data-days="30">Месяц</button>
+      <button class="period-btn" data-days="90">3 месяца</button>
+      <button class="period-btn" data-days="365">Год</button>
+      <button class="period-btn" data-days="all">Весь</button>
+    </div>
+    <div class="row">
+      <label>или вручную:</label>
+      <input type="date" id="from"> — <input type="date" id="to">
+      <button class="apply-btn" id="apply">Применить</button>
+      <button class="print-btn" id="print">🖨 Печать / Сохранить в PDF</button>
+    </div>
+  </div>
+
+  <div class="doc" id="doc">
+    <div id="empty">Загрузка…</div>
+    <div id="report"></div>
+  </div>
+</div>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script>
+// ===== настройки (как в index.html) =====
+const CLIENT_ID = "1097604409714-cj0tn3kmfku1ksscm16pr9k4a4otquof.apps.googleusercontent.com";
+const SPREADSHEET_ID = "1UwAxqE2HfZPMFh08KfOiqz17jthhmpXqqBsCyyKo7wQ";
+const DIARY_RANGE = "Лист1!A1:M2000";
+const JOURNAL_RANGE = "Журнал!A1:K5000";
+const PROFILE_RANGE = "Профиль!A1:C2";
+const SCOPES = "https://www.googleapis.com/auth/spreadsheets.readonly";
+
+const FEEL = "#ff8a3d", DIAG = "#2f8f6f", LINE = "#6b7785", GRID = "#eef2f4";
+
+let TAX = null, accessToken = null;
+let diaryRows = [], journalRows = [], profile = {пол:"",возраст:"",рост:""};
+let period = { days: 30 };   // {days:N|'all'} или {from:iso,to:iso}
+
+// ===== утилиты дат =====
+function toISO(d){ if(!d) return ""; const [a,b,c]=d.split("."); return `${c}-${b}-${a}`; }
+function fromISO(iso){ const [y,m,d]=iso.split("-"); return `${d}.${m}.${y}`; }
+function pad(n){ return String(n).padStart(2,"0"); }
+function dObjISO(dt){ return `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}`; }
+function todayISO(){ return dObjISO(new Date()); }
+
+function periodRange(){
+  const end = (period.to) || todayISO();
+  let start;
+  if(period.from){ start = period.from; }
+  else if(period.days === 'all'){ start = "0000-00-00"; }
+  else {
+    const dt = new Date(); dt.setDate(dt.getDate() - (period.days-1));
+    start = dObjISO(dt);
+  }
+  return { start, end };
+}
+function inPeriod(iso){ const {start,end}=periodRange(); return iso && iso>=start && iso<=end; }
+
+// ===== загрузка =====
+async function fetchRange(range){
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(range)}`;
+  const r = await fetch(url, { headers:{ Authorization:"Bearer "+accessToken } });
+  if(!r.ok) return [];
+  return (await r.json()).values || [];
+}
+async function loadData(){
+  setStatus("Загружаю таблицу…");
+  const diary = await fetchRange(DIARY_RANGE);
+  const dh = diary[0]||[], di=(n)=>dh.indexOf(n);
+  diaryRows = diary.slice(1).filter(r=>r[di("Дата")]).map(r=>({
+    date:r[di("Дата")], вес:num(r[di("Вес")]), самочувствие:num(r[di("Самочувствие")]),
+    часыСна:num(r[di("Часы сна")]), оценкаСна:num(r[di("Оценка сна")]),
+    тренировка:r[di("Тренировка")]||"", лекарства:r[di("Лекарства")]||"", заметки:r[di("Заметки")]||""
+  }));
+  const jr = await fetchRange(JOURNAL_RANGE);
+  const jh=jr[0]||[], ji=(n)=>jh.indexOf(n);
+  journalRows = jr.slice(1).filter(r=>r[ji("Дата")]&&r[ji("Зона")]).map(r=>({
+    дата:r[ji("Дата")], плоскость:(r[ji("Плоскость")]||"").trim(), система:(r[ji("Система")]||"").trim(),
+    зона:(r[ji("Зона")]||"").trim(), сторона:(r[ji("Сторона")]||"").trim(), что:r[ji("Что болит")]||"",
+    характер:r[ji("Характер")]||"", сила:r[ji("Сила")]||"", действие:(r[ji("Действие")]||"добавлен").trim(),
+    текст:r[ji("Исходный текст")]||""
+  }));
+  const pr = await fetchRange(PROFILE_RANGE);
+  if(pr.length>1){ const h=pr[0], v=pr[1]; const g=(n)=>{const i=h.indexOf(n);return i===-1?"":(v[i]||"");};
+    profile={пол:g("Пол"),возраст:g("Возраст"),рост:g("Рост")}; }
+  setStatus(`Загружено: дней ${diaryRows.length}, журнал ${journalRows.length}`);
+  document.getElementById("signin-area").style.display="none";
+  render();
+}
+function num(x){ if(x==null||x==="") return null; const v=parseFloat(String(x).replace(",",".")); return isNaN(v)?null:v; }
+function setStatus(t){ document.getElementById("status").textContent=t; }
+
+// ===== логика активных диагнозов (как matchingRecords в index.html) =====
+function activeDiagnoses(endISO){
+  const groups={};
+  journalRows.filter(r=>r.плоскость==="диагноз" && toISO(r.дата)<=endISO).forEach(r=>{
+    const k=`${r.система}|${r.зона}|${r.сторона}`;
+    (groups[k]=groups[k]||[]).push(r);
+  });
+  const out=[];
+  for(const k in groups){
+    const arr=groups[k].sort((a,b)=>toISO(a.дата).localeCompare(toISO(b.дата)));
+    const last=arr[arr.length-1];
+    if(last.действие!=="отменён" && last.действие!=="снят") out.push({...last, _первая:arr[0].дата});
+  }
+  return out;
+}
+// жалобы (самочувствие) за период, агрегированные по системе|зоне|сторона
+function complaintsInPeriod(){
+  const groups={};
+  journalRows.filter(r=>r.плоскость==="самочувствие" && inPeriod(toISO(r.дата)) && r.действие!=="снят").forEach(r=>{
+    const k=`${r.система}|${r.зона}|${r.сторона}`;
+    const g=groups[k]=groups[k]||{система:r.система,зона:r.зона,сторона:r.сторона,дни:new Set(),что:{},характер:"",сила:[]};
+    g.дни.add(r.дата);
+    if(r.что) g.что[r.что]=(g.что[r.что]||0)+1;
+    if(r.характер) g.характер=r.характер;
+    if(r.сила) g.сила.push(parseFloat(r.сила));
+  });
+  return Object.values(groups);
+}
+
+// ===== имена из таксономии =====
+function sysName(k){ return TAX.системы[k] ? `${TAX.системы[k].иконка} ${TAX.системы[k].назв}` : k; }
+function zoneName(k,side){ const z=TAX.зоны[k]; return (z?z.назв:k) + (side?` (${side})`:""); }
+
+// ===== спарклайн =====
+function sparkline(series, color){
+  // series: [{iso, v}] по дням периода (v может быть null)
+  const pts = series.filter(p=>p.v!=null);
+  if(pts.length<1) return `<div class="muted">нет данных за период</div>`;
+  const W=380,H=70,px=8,py=10;
+  const vals=pts.map(p=>p.v);
+  let min=Math.min(...vals), max=Math.max(...vals);
+  if(min===max){ min-=1; max+=1; }
+  const n=series.length;
+  const xi=i=>px+(n<=1?W-2*px:(i/(n-1))*(W-2*px));
+  const yv=v=>H-py-((v-min)/(max-min))*(H-2*py);
+  // путь с разрывами на null
+  let d="",pen=false;
+  series.forEach((p,i)=>{ if(p.v==null){pen=false;return;} const cmd=pen?"L":"M"; d+=`${cmd}${xi(i).toFixed(1)} ${yv(p.v).toFixed(1)} `; pen=true; });
+  // маркеры min/max
+  let mn=pts[0],mx=pts[0]; pts.forEach(p=>{if(p.v<mn.v)mn=p;if(p.v>mx.v)mx=p;});
+  const idx=iso=>series.findIndex(s=>s.iso===iso);
+  const mk=(p,lab)=>{const i=idx(p.iso); const cy=yv(p.v); const ly=cy-6<11?cy+13:cy-6;
+    return `<circle cx="${xi(i).toFixed(1)}" cy="${cy.toFixed(1)}" r="3.2" fill="${color}"/>`
+    +`<text x="${xi(i).toFixed(1)}" y="${ly.toFixed(1)}" font-size="9" fill="#6b7785" text-anchor="middle">${lab}</text>`;};
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img">
+    <line x1="${px}" y1="${H-py}" x2="${W-px}" y2="${H-py}" stroke="${GRID}" stroke-width="1"/>
+    <path d="${d.trim()}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    ${mk(mx,mx.v)}${mn.iso!==mx.iso?mk(mn,mn.v):""}
+  </svg>`;
+}
+function daySeries(key){
+  const {start,end}=periodRange();
+  const rows=diaryRows.filter(r=>{const iso=toISO(r.date);return iso>=start&&iso<=end;})
+    .sort((a,b)=>toISO(a.date).localeCompare(toISO(b.date)));
+  return rows.map(r=>({iso:toISO(r.date), v:r[key]}));
+}
+function stats(series){
+  const v=series.filter(p=>p.v!=null).map(p=>p.v);
+  if(!v.length) return null;
+  const sum=v.reduce((a,b)=>a+b,0);
+  return { avg:+(sum/v.length).toFixed(1), min:Math.min(...v), max:Math.max(...v), n:v.length };
+}
+
+// ===== рендер =====
+function render(){
+  if(!TAX){ return; }
+  const {start,end}=periodRange();
+  const startTxt = period.days==='all' ? (diaryRows.length?minDate():"—") : fromISO(start);
+  const el=document.getElementById("report");
+  const w=profile.вес || latestWeight();
+  const prof=[profile.пол&&`пол: ${profile.пол}`,profile.возраст&&`возраст: ${profile.возраст}`,
+    profile.рост&&`рост: ${profile.рост} см`, latestWeight()&&`вес: ${latestWeight()} кг`].filter(Boolean).join(" · ")||"профиль не заполнен";
+
+  let html = `
+    <h1>🩺 ТВОЁ ЗДОРОВЬЕ</h1>
+    <div class="sub">Отчёт о состоянии здоровья для врача</div>
+    <div class="meta">
+      <span><b>Пациент:</b> ${prof}</span>
+      <span><b>Период:</b> ${startTxt} — ${fromISO(end)}</span>
+      <span><b>Сформирован:</b> ${fromISO(todayISO())}</span>
+    </div>`;
+
+  // --- жалобы и диагнозы по системам ---
+  html += renderComplaints();
+  // --- лекарства ---
+  html += renderMeds();
+  // --- динамика ---
+  html += renderCharts();
+  // --- сон ---
+  html += renderSleep();
+
+  html += `<div class="footnote">Данные собраны пациентом самостоятельно через приложение-дневник «ТВОЁ ЗДОРОВЬЕ». «Самочувствие» — субъективные ощущения; «Диагноз» — со слов пациента по заключению врача. Не является медицинским документом.</div>`;
+  el.innerHTML=html;
+}
+function minDate(){ return diaryRows.map(r=>r.date).sort((a,b)=>toISO(a).localeCompare(toISO(b)))[0]; }
+function latestWeight(){ for(let i=diaryRows.length-1;i>=0;i--) if(diaryRows[i].вес!=null) return diaryRows[i].вес; return ""; }
+
+function renderComplaints(){
+  const diag=activeDiagnoses(periodRange().end);
+  const compl=complaintsInPeriod();
+  const systems=new Set([...diag.map(d=>d.система),...compl.map(c=>c.система)]);
+  let h=`<section><h2>Жалобы и диагнозы по системам тела</h2>`;
+  if(!systems.size){ return h+`<div class="muted">За выбранный период жалоб и активных диагнозов нет.</div></section>`; }
+  // упорядочить как в таксономии
+  const order=Object.keys(TAX.системы);
+  [...systems].sort((a,b)=>order.indexOf(a)-order.indexOf(b)).forEach(sys=>{
+    h+=`<div class="sys-card"><h3>${sysName(sys)}</h3>`;
+    diag.filter(d=>d.система===sys).forEach(d=>{
+      h+=`<div class="rec"><span class="zone">${zoneName(d.зона,d.сторона)}</span>
+        <span class="body"><span class="tag diag">🔴 диагноз</span> ${esc(d.что)||"—"}${d.текст?` <span class="muted">(«${esc(d.текст)}»)</span>`:""}</span>
+        <span class="dates">с ${d._первая}</span></div>`;
+    });
+    compl.filter(c=>c.система===sys).forEach(c=>{
+      const что=Object.entries(c.что).sort((a,b)=>b[1]-a[1])[0]; const чтоTxt=что?что[0]:"—";
+      const силы=c.сила.filter(x=>!isNaN(x)); const сила=силы.length?`, сила до ${Math.max(...силы)}/10`:"";
+      const dd=[...c.дни].sort((a,b)=>toISO(a).localeCompare(toISO(b)));
+      const диап = dd.length>1?`${dd[0]} – ${dd[dd.length-1]}`:dd[0];
+      h+=`<div class="rec"><span class="zone">${zoneName(c.зона,c.сторона)}</span>
+        <span class="body"><span class="tag feel">🟡 самочувствие</span> ${esc(чтоTxt)}${c.характер?`, ${esc(c.характер)}`:""}${сила} — <b>отмечено ${c.дни.size} дн.</b></span>
+        <span class="dates">${диап}</span></div>`;
+    });
+    h+=`</div>`;
+  });
+  return h+`</section>`;
+}
+
+function renderMeds(){
+  const {start,end}=periodRange();
+  const rows=diaryRows.filter(r=>{const iso=toISO(r.date);return iso>=start&&iso<=end&&r.лекарства.trim();})
+    .sort((a,b)=>toISO(b.date).localeCompare(toISO(a.date)));
+  let h=`<section><h2>Лекарства за период</h2>`;
+  if(!rows.length) return h+`<div class="muted">Приём лекарств за период не отмечен.</div></section>`;
+  h+=`<table class="meds">`;
+  rows.forEach(r=>{
+    const meds=r.лекарства.split(/\n|;/).map(s=>s.trim()).filter(Boolean).join(", ");
+    h+=`<tr><td class="d">${r.date}</td><td>${esc(meds)}</td></tr>`;
+  });
+  return h+`</table></section>`;
+}
+
+function renderCharts(){
+  const defs=[
+    {k:"вес",label:"Вес, кг",color:LINE},
+    {k:"часыСна",label:"Часы сна",color:DIAG},
+    {k:"оценкаСна",label:"Оценка сна, /10",color:DIAG},
+    {k:"самочувствие",label:"Самочувствие, /10",color:FEEL},
+  ];
+  let h=`<section><h2>Динамика показателей</h2><div class="charts">`;
+  defs.forEach(d=>{
+    const s=daySeries(d.k), st=stats(s);
+    const sub = st?`среднее ${st.avg} · мин ${st.min} · макс ${st.max} (${st.n} зап.)`:"нет данных";
+    h+=`<div class="chart"><div class="ct">${d.label}</div><div class="cs">${sub}</div>${sparkline(s,d.color)}</div>`;
+  });
+  return h+`</div></section>`;
+}
+
+function renderSleep(){
+  const s=daySeries("часыСна").filter(p=>p.v!=null);
+  let h=`<section><h2>Сон</h2>`;
+  if(!s.length) return h+`<div class="muted">Данных о сне за период нет.</div></section>`;
+  const avg=(s.reduce((a,b)=>a+b.v,0)/s.length).toFixed(1);
+  const недосып=s.filter(p=>p.v<7).length;
+  const оц=daySeries("оценкаСна").filter(p=>p.v!=null);
+  const оцAvg=оц.length?(оц.reduce((a,b)=>a+b.v,0)/оц.length).toFixed(1):"—";
+  h+=`<div class="sleep-grid">
+    <div class="stat"><div class="n">${avg} ч</div><div class="l">средняя длительность сна</div></div>
+    <div class="stat"><div class="n">${недосып}</div><div class="l">ночей с недосыпом (&lt;7 ч)</div></div>
+    <div class="stat"><div class="n">${оцAvg}</div><div class="l">средняя оценка сна /10</div></div>
+    <div class="stat"><div class="n">${s.length}</div><div class="l">ночей записано</div></div>
+  </div>`;
+  return h+`</section>`;
+}
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+// ===== управление периодом =====
+function bindToolbar(){
+  document.querySelectorAll(".period-btn").forEach(b=>b.addEventListener("click",()=>{
+    document.querySelectorAll(".period-btn").forEach(x=>x.classList.remove("active"));
+    b.classList.add("active");
+    const d=b.dataset.days; period = (d==='all')?{days:'all'}:{days:+d};
+    document.getElementById("from").value=""; document.getElementById("to").value="";
+    render();
+  }));
+  document.getElementById("apply").addEventListener("click",()=>{
+    const f=document.getElementById("from").value, t=document.getElementById("to").value;
+    if(!f&&!t) return;
+    document.querySelectorAll(".period-btn").forEach(x=>x.classList.remove("active"));
+    period={ from:f||"0000-00-00", to:t||todayISO() };
+    render();
+  });
+  document.getElementById("print").addEventListener("click",()=>window.print());
+}
+
+// ===== OAuth =====
+function initSignin(){
+  if(!(window.google&&google.accounts)) return;
+  const client=google.accounts.oauth2.initTokenClient({
+    client_id:CLIENT_ID, scope:SCOPES,
+    callback:(resp)=>{ if(resp.error){setStatus("Ошибка входа: "+resp.error);return;}
+      accessToken=resp.access_token; setStatus("Вход выполнен"); loadData(); }
+  });
+  document.getElementById("signin-btn").addEventListener("click",()=>client.requestAccessToken());
+}
+
+// ===== демо =====
+function demoData(){
+  const diary=[], today=new Date();
+  for(let i=29;i>=0;i--){
+    const dt=new Date(today); dt.setDate(dt.getDate()-i);
+    const date=`${pad(dt.getDate())}.${pad(dt.getMonth()+1)}.${dt.getFullYear()}`;
+    const trend=78.5-(29-i)*0.05;                         // плавное снижение веса
+    const вес=+(trend+Math.sin(i)*0.3).toFixed(1);
+    const часы=+(6.4+Math.sin(i/2)*1.1+(i%5===0?-1.2:0)).toFixed(1);
+    const оц=Math.max(3,Math.min(10,Math.round(10-(7-часы)*1.5-(i%6===0?1:0))));
+    const сам=Math.max(3,Math.min(10,Math.round(7+Math.sin(i/3)*2-(i%7===0?2:0))));
+    let лек=""; if(i===4) лек="Парацетамол 1 табл"; if(i===3) лек="Парацетамол 1 табл"; if(i<20&&i%1===0&&i>=0&&(i===18||i===12||i===6||i===0)) лек=(лек?лек+"\n":"")+"Омепразол 20 мг";
+    diary.push({date,вес,самочувствие:сам,часыСна:часы,оценкаСна:оц,
+      тренировка:(i%3===0?"бег 5 км":""),лекарства:лек,заметки:(i%7===0?"устал на работе":"")});
+  }
+  const dmy=off=>{const dt=new Date(today);dt.setDate(dt.getDate()-off);return `${pad(dt.getDate())}.${pad(dt.getMonth()+1)}.${dt.getFullYear()}`;};
+  const journal=[
+    {дата:dmy(1),плоскость:"самочувствие",система:"мышцы",зона:"плечо",сторона:"прав",что:"боль",характер:"тянет",сила:"3",действие:"добавлен",текст:"тянет правое плечо"},
+    {дата:dmy(2),плоскость:"самочувствие",система:"мышцы",зона:"плечо",сторона:"прав",что:"боль",характер:"тянет",сила:"4",действие:"добавлен",текст:"плечо сильнее к вечеру"},
+    {дата:dmy(5),плоскость:"самочувствие",система:"дыхание",зона:"горло",сторона:"",что:"першит",характер:"",сила:"3",действие:"добавлен",текст:"горло першит, простуда"},
+    {дата:dmy(6),плоскость:"самочувствие",система:"дыхание",зона:"горло",сторона:"",что:"кашель",характер:"",сила:"4",действие:"добавлен",текст:"кашель"},
+    {дата:dmy(10),плоскость:"самочувствие",система:"нервная",зона:"голова",сторона:"",что:"мигрень",характер:"пульсирует",сила:"6",действие:"добавлен",текст:"мигрень полдня"},
+    {дата:dmy(24),плоскость:"диагноз",система:"пищеварение",зона:"желудок",сторона:"",что:"гастрит",характер:"",сила:"",действие:"добавлен",текст:"врач поставил гастрит"},
+    {дата:dmy(40),плоскость:"диагноз",система:"кости",зона:"поясница",сторона:"",что:"остеохондроз",характер:"",сила:"",действие:"добавлен",текст:"остеохондроз поясничного отдела"},
+  ];
+  return {diary,journal,profile:{пол:"мужской",возраст:"35",рост:"180"}};
+}
+
+// ===== boot =====
+async function boot(){
+  try{ TAX=await (await fetch("таксономия.json")).json(); }
+  catch(e){ document.getElementById("empty").textContent="Не удалось загрузить таксономию.json"; document.getElementById("empty").style.display="block"; return; }
+  bindToolbar();
+  if(new URLSearchParams(location.search).has("demo")){
+    const d=demoData(); diaryRows=d.diary; journalRows=d.journal; profile=d.profile;
+    document.getElementById("signin-area").style.display="none";
+    setStatus("демо-режим");
+    render(); return;
+  }
+  window.addEventListener("load",initSignin);
+  if(window.google&&google.accounts) initSignin();
+}
+boot();
+</script>
+</body>
+</html>
