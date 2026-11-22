@@ -71,6 +71,25 @@
   .tabs.planes .tab.active[data-plane="диагноз"] { background: var(--diag); border-color: var(--diag); }
   .tabs-label { font-size: 12px; color: var(--muted); align-self: center; margin-right: 6px; }
 
+  #atlas-bar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 12px; padding: 8px 12px; margin-bottom: 12px;
+  }
+  .layer-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    border: 1px solid var(--border); border-radius: 18px;
+    padding: 4px 10px; font-size: 13px; cursor: pointer; user-select: none;
+  }
+  .layer-chip input { accent-color: var(--accent); cursor: pointer; }
+  .atlas-sep { width: 1px; align-self: stretch; background: var(--border); margin: 2px 2px; }
+  .mini-btn {
+    border: 1px solid var(--border); background: var(--panel); color: var(--text);
+    border-radius: 16px; padding: 4px 10px; font-size: 12px; cursor: pointer;
+  }
+  .mini-btn:hover { background: #eef3f2; }
+  #skin-opacity { width: 120px; accent-color: var(--accent); }
+
   .layout { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; }
 
   #figure-wrap {
@@ -174,12 +193,32 @@
     <div class="tab active" data-system="все">Все</div>
   </div>
 
+  <!-- атлас: слои, прозрачность, пол, быстрые виды -->
+  <div id="atlas-bar">
+    <span class="tabs-label">Слои:</span>
+    <label class="layer-chip"><input type="checkbox" data-layer="кожа" checked> 🫧 Кожа</label>
+    <label class="layer-chip"><input type="checkbox" data-layer="мышцы"> 💪 Мышцы</label>
+    <label class="layer-chip"><input type="checkbox" data-layer="скелет"> 🦴 Скелет</label>
+    <label class="layer-chip"><input type="checkbox" data-layer="органы"> 🫀 Органы</label>
+    <span class="atlas-sep"></span>
+    <span class="tabs-label">Прозрачность кожи:</span>
+    <input type="range" id="skin-opacity" min="0" max="100" value="96">
+    <span class="atlas-sep"></span>
+    <button class="mini-btn" id="sex-toggle">⚥ Пол: ♂ М</button>
+    <span class="atlas-sep"></span>
+    <span class="tabs-label">Вид:</span>
+    <button class="mini-btn" data-view="front">Спереди</button>
+    <button class="mini-btn" data-view="back">Сзади</button>
+    <button class="mini-btn" data-view="left">Слева</button>
+    <button class="mini-btn" data-view="right">Справа</button>
+  </div>
+
   <div class="layout">
     <div id="figure-wrap">
       <div id="zone-tip"></div>
       <div id="figure-viewport"></div>
-      <div id="sex-badge">♂ Мужской · клик по телу — сменить пол</div>
-      <div id="figure-hint">вращать — потянуть · зум — колесо/щипок · клик по точке — подробнее · клик по телу — сменить пол</div>
+      <div id="sex-badge">♂ Мужской</div>
+      <div id="figure-hint">вращать — потянуть · зум — колесо/щипок · клик по структуре — название</div>
     </div>
 
     <div id="side-panel">
@@ -250,8 +289,12 @@ let scene, camera, renderer, controls;
 let hotspots = [];              // {mesh, zone, side, systems[]}
 let skinMeshes = [];
 let genitalMesh = null;
-let bodyGroup = null;           // тело целиком (пересобирается при смене пола)
-let currentSex = "мужской";     // "мужской" | "женский" — клик по телу переключает
+let currentSex = "мужской";     // "мужской" | "женский"
+// слои-атлас: каждый — отдельная THREE.Group, включается/выключается
+let layers = { кожа: null, мышцы: null, скелет: null, органы: null };
+let layerOn = { кожа: true, мышцы: false, скелет: false, органы: false };
+let skinOpacity = 0.96;         // ползунок прозрачности кожи (0..1)
+let labelMeshes = [];           // {mesh, name, layer} — подписи структур при клике
 
 function init3D() {
   const viewport = document.getElementById("figure-viewport");
@@ -282,8 +325,7 @@ function init3D() {
   else if (vw === "three") { camera.position.set(3.2, 1.8, 3.2); }
   controls.update();
 
-  bodyGroup = buildBody(currentSex);
-  scene.add(bodyGroup);
+  buildAllLayers(currentSex);
   updateSexBadge();
 
   window.addEventListener("resize", onResize);
@@ -407,21 +449,126 @@ function buildBody(sex) {
   return group;
 }
 
-// Смена пола: пересобрать тело (пропорции/грудь/гениталии). Точки-хотспоты не трогаем.
+// Фабрика-помощник: put/ball/bone, привязанные к группе и материалу.
+function maker(group, matFactory) {
+  const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
+  const reg = (m) => { group.add(m); return m; };
+  const put = (geo, x, y, z) => { const m = new THREE.Mesh(geo, matFactory()); m.position.set(x, y, z); return reg(m); };
+  const ball = (r, x, y, z, sx, sy, sz) => { const m = put(new THREE.SphereGeometry(r, 16, 14), x, y, z); if (sx) m.scale.set(sx, sy, sz); return m; };
+  const bone = (p1, p2, rA, rB) => {
+    const d = new THREE.Vector3().subVectors(p2, p1), L = d.length();
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(rB, rA, L, 14, 1, false), matFactory());
+    m.position.copy(p1).addScaledVector(d, 0.5);
+    m.quaternion.setFromUnitVectors(V3(0, 1, 0), d.clone().normalize());
+    return reg(m);
+  };
+  return { put, ball, bone, V3 };
+}
+function label(m, name, layer) { m.userData = { name, layer }; labelMeshes.push({ mesh: m, name, layer }); return m; }
+
+// --- СЛОЙ: МЫШЦЫ (упрощённые крупные группы, красноватые) ---
+function buildMuscles(sex) {
+  const P = BODY[sex] || BODY["мужской"];
+  const g = new THREE.Group();
+  const { ball, V3 } = maker(g, () => new THREE.MeshStandardMaterial({ color: 0xb24a3f, roughness: 0.6 }));
+  label(ball(0.17, -0.15, 1.98, 0.15, 1, 0.8, 0.8), "Грудная мышца", "мышцы");
+  label(ball(0.17, 0.15, 1.98, 0.15, 1, 0.8, 0.8), "Грудная мышца", "мышцы");
+  for (let i = 0; i < 3; i++) label(ball(0.11, 0, 1.78 - i * 0.16, 0.16, 1.1, 0.85, 0.7), "Мышцы пресса", "мышцы");
+  label(ball(0.2, 0, 2.2, 0.0, 1.5, 0.55, 0.8), "Трапециевидная", "мышцы");
+  const [aU] = P.armR, [tU] = P.thighR, [cU] = P.calfR;
+  for (const s of [-1, 1]) {
+    label(ball(0.14, s * 0.43, 2.2, 0), "Дельтовидная", "мышцы");
+    label(ball(aU * 0.95, s * 0.72, 2.19, 0, 1.4, 0.9, 0.9), "Бицепс", "мышцы");
+    label(ball(0.08, s * 1.15, 2.175, 0, 1.9, 0.8, 0.8), "Предплечье", "мышцы");
+    label(ball(P.glute * 0.9, s * 0.14, 1.13, -0.16), "Ягодичная", "мышцы");
+    label(ball(tU * 0.88, s * 0.4, 0.95, 0.03, 1, 1.6, 1), "Квадрицепс", "мышцы");
+    label(ball(cU, s * 0.42, 0.27, -0.03, 1, 1.5, 1), "Икроножная", "мышцы");
+  }
+  return g;
+}
+
+// --- СЛОЙ: СКЕЛЕТ (череп, позвоночник, рёбра, таз, кости конечностей) ---
+function buildSkeleton() {
+  const g = new THREE.Group();
+  const mat = () => new THREE.MeshStandardMaterial({ color: 0xece6d6, roughness: 0.5, transparent: true, opacity: 1, side: THREE.DoubleSide });
+  const { put, ball, bone, V3 } = maker(g, mat);
+  label(ball(0.22, 0, 2.70, 0.0, 0.9, 1.1, 1.0), "Череп", "скелет");
+  label(ball(0.12, 0, 2.56, 0.07, 1, 0.6, 0.7), "Нижняя челюсть", "скелет");
+  for (let i = 0; i < 17; i++) label(ball(0.045, 0, 1.15 + i * 0.072, -0.07), "Позвоночник", "скелет");
+  for (let i = 0; i < 7; i++) {
+    const t = new THREE.Mesh(new THREE.TorusGeometry(1, 0.016, 8, 28), mat());
+    t.scale.set(0.30 - i * 0.004, 0.19 - i * 0.003, 1); t.position.set(0, 1.72 + i * 0.062, 0.0); t.rotation.x = Math.PI / 2;
+    g.add(t); label(t, "Ребро", "скелет");
+  }
+  label(put(new THREE.BoxGeometry(0.06, 0.34, 0.03), 0, 1.95, 0.2), "Грудина", "скелет");
+  label(bone(V3(-0.04, 2.22, 0.12), V3(-0.34, 2.2, 0.05), 0.025, 0.025), "Ключица", "скелет");
+  label(bone(V3(0.04, 2.22, 0.12), V3(0.34, 2.2, 0.05), 0.025, 0.025), "Ключица", "скелет");
+  const pel = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.05, 10, 24), mat());
+  pel.scale.set(1, 0.6, 0.7); pel.position.set(0, 1.16, -0.02); pel.rotation.x = Math.PI / 2; g.add(pel); label(pel, "Таз", "скелет");
+  for (const s of [-1, 1]) {
+    label(bone(V3(s * 0.4, 2.2, 0), V3(s * 0.96, 2.18, 0), 0.035, 0.03), "Плечевая кость", "скелет");
+    label(bone(V3(s * 0.98, 2.18, 0), V3(s * 1.4, 2.17, 0), 0.028, 0.022), "Кости предплечья", "скелет");
+    label(ball(0.05, s * 1.5, 2.17, 0, 1.3, 0.4, 0.9), "Кости кисти", "скелет");
+    label(bone(V3(s * 0.28, 1.12, 0), V3(s * 0.42, 0.45, 0.01), 0.05, 0.035), "Бедренная кость", "скелет");
+    label(bone(V3(s * 0.42, 0.45, 0.01), V3(s * 0.42, 0.08, 0), 0.035, 0.025), "Кости голени", "скелет");
+    label(ball(0.055, s * 0.42, 0.44, 0.01), "Коленная чашечка", "скелет");
+    label(put(new THREE.BoxGeometry(0.09, 0.05, 0.26), s * 0.42, 0.05, 0.09), "Кости стопы", "скелет");
+  }
+  return g;
+}
+
+// --- СЛОЙ: ОРГАНЫ (цветные, с названиями) ---
+function buildOrgans() {
+  const g = new THREE.Group();
+  const M = (c, o) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.45, transparent: true, opacity: o || 0.95, side: THREE.DoubleSide });
+  const add = (name, geo, x, y, z, color, sx, sy, sz, op) => {
+    const m = new THREE.Mesh(geo, M(color, op)); m.position.set(x, y, z); if (sx) m.scale.set(sx, sy, sz);
+    g.add(m); return label(m, name, "органы");
+  };
+  add("Головной мозг", new THREE.SphereGeometry(0.17, 20, 16), 0, 2.68, 0.0, 0xf0b7c0, 1, 0.9, 1.05);
+  add("Лёгкое", new THREE.SphereGeometry(0.13, 16, 14), -0.16, 2.05, 0.03, 0xe08a9a, 1, 1.5, 0.9, 0.9);
+  add("Лёгкое", new THREE.SphereGeometry(0.13, 16, 14), 0.16, 2.05, 0.03, 0xe08a9a, 1, 1.5, 0.9, 0.9);
+  add("Сердце", new THREE.SphereGeometry(0.1, 16, 14), -0.06, 2.0, 0.1, 0xc0392b, 1, 1.2, 0.9);
+  add("Желудок", new THREE.SphereGeometry(0.11, 16, 14), -0.1, 1.74, 0.08, 0xd9a24e, 1.2, 0.9, 0.8);
+  add("Печень", new THREE.BoxGeometry(0.32, 0.15, 0.22), 0.08, 1.72, 0.08, 0x7b3f2e);
+  add("Кишечник", new THREE.TorusKnotGeometry(0.13, 0.045, 80, 8, 2, 3), 0, 1.46, 0.08, 0xe0a58a, 1, 0.7, 0.8);
+  add("Почка", new THREE.SphereGeometry(0.07, 14, 12), -0.12, 1.58, -0.12, 0x8e5a3c, 0.8, 1.2, 0.8);
+  add("Почка", new THREE.SphereGeometry(0.07, 14, 12), 0.12, 1.58, -0.12, 0x8e5a3c, 0.8, 1.2, 0.8);
+  add("Мочевой пузырь", new THREE.SphereGeometry(0.08, 14, 12), 0, 1.3, 0.08, 0xe6cf6a, 1, 0.9, 0.9);
+  return g;
+}
+
+// Пересобрать все слои (кожа+мышцы зависят от пола; скелет+органы одинаковы).
+function buildAllLayers(sex) {
+  for (const k of Object.keys(layers)) {
+    const gr = layers[k];
+    if (gr) { scene.remove(gr); gr.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); }
+    layers[k] = null;
+  }
+  labelMeshes = [];
+  layers["кожа"] = buildBody(sex);     // задаёт skinMeshes, genitalMesh
+  layers["мышцы"] = buildMuscles(sex);
+  layers["скелет"] = buildSkeleton();
+  layers["органы"] = buildOrgans();
+  for (const k of Object.keys(layers)) scene.add(layers[k]);
+  applyLayers();
+}
+// Применить видимость слоёв + прозрачность кожи.
+function applyLayers() {
+  for (const k of Object.keys(layers)) if (layers[k]) layers[k].visible = layerOn[k];
+  setSkinOpacity(skinOpacity);
+  updateSexBadge();
+}
 function setSex(sex) {
   currentSex = (sex && (sex.toLowerCase().startsWith("ж") || sex === "женский")) ? "женский" : "мужской";
-  if (bodyGroup) {
-    scene.remove(bodyGroup);
-    bodyGroup.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
-  }
-  bodyGroup = buildBody(currentSex);
-  scene.add(bodyGroup);
-  updateSexBadge();
-  if (timeline.length) renderDay(curIndex); else setSkinOpacity(0.96);
+  buildAllLayers(currentSex);
+  if (timeline.length) renderDay(curIndex);
 }
 function updateSexBadge() {
-  const el = document.getElementById("sex-badge");
-  if (el) el.textContent = (currentSex === "женский" ? "♀ Женский" : "♂ Мужской") + " · клик по телу — сменить пол";
+  const b = document.getElementById("sex-badge");
+  if (b) b.textContent = currentSex === "женский" ? "♀ Женский" : "♂ Мужской";
+  const btn = document.getElementById("sex-toggle");
+  if (btn) btn.textContent = currentSex === "женский" ? "⚥ Пол: ♀ Ж" : "⚥ Пол: ♂ М";
 }
 
 // хотспоты строим из таксономии: парная зона -> 2 точки (лев/прав, зеркало по X)
@@ -472,10 +619,19 @@ function pickZone(e) {
   const hits = raycaster.intersectObjects(visible);
   const tip = document.getElementById("zone-tip");
   if (!hits.length) {
-    tip.style.display = "none";
-    // клик мимо точки, но по самому телу → сменить пол М ⇄ Ж
-    if (raycaster.intersectObjects(skinMeshes, false).length)
-      setSex(currentSex === "мужской" ? "женский" : "мужской");
+    // мимо точки-симптома → показать название анатомической структуры видимого слоя
+    const structs = labelMeshes
+      .filter(x => layerOn[x.layer] && layers[x.layer] && layers[x.layer].visible)
+      .map(x => x.mesh);
+    const sh = raycaster.intersectObjects(structs, false);
+    if (sh.length) {
+      const u = sh[0].object.userData;
+      const layerName = { кожа: "Кожа", мышцы: "Мышца", скелет: "Кость", органы: "Орган" }[u.layer] || "";
+      tip.innerHTML = `<b>${u.name}</b>${layerName ? ` · ${layerName}` : ""}`;
+      tip.style.display = "block";
+    } else {
+      tip.style.display = "none";
+    }
     return;
   }
   const ud = hits[0].object.userData;
@@ -644,8 +800,8 @@ function renderDay(i) {
   document.getElementById("day-slider").value = i;
   document.getElementById("zone-tip").style.display = "none";
 
-  // кожа прозрачнее при показе внутренних систем
-  setSkinOpacity(INTERNAL_SYSTEMS.has(activeSystem) ? 0.18 : 0.95);
+  // видимость слоёв + прозрачность кожи (атлас)
+  applyLayers();
 
   const dayJournal = [];
   hotspots.forEach(h => {
@@ -757,6 +913,26 @@ function bindPlaneTabs() {
   });
 }
 
+// Быстрые виды камеры (как в анатомических атласах)
+function setView(v) {
+  const p = { front: [0, 1.6, 4.4], back: [0, 1.6, -4.4], left: [-4.4, 1.6, 0.2], right: [4.4, 1.6, 0.2] }[v];
+  if (!p || !camera) return;
+  camera.position.set(p[0], p[1], p[2]);
+  controls.target.set(0, 1.5, 0); controls.update();
+}
+// Панель атласа: слои, прозрачность кожи, пол, виды
+function bindAtlasControls() {
+  document.querySelectorAll("#atlas-bar input[data-layer]").forEach(cb => {
+    cb.checked = layerOn[cb.dataset.layer];
+    cb.addEventListener("change", () => { layerOn[cb.dataset.layer] = cb.checked; applyLayers(); });
+  });
+  const op = document.getElementById("skin-opacity");
+  if (op) { op.value = Math.round(skinOpacity * 100); op.addEventListener("input", () => { skinOpacity = op.value / 100; applyLayers(); }); }
+  const sx = document.getElementById("sex-toggle");
+  if (sx) sx.addEventListener("click", () => setSex(currentSex === "мужской" ? "женский" : "мужской"));
+  document.querySelectorAll("#atlas-bar button[data-view]").forEach(b => b.addEventListener("click", () => setView(b.dataset.view)));
+}
+
 // ---------- тест-хук: показать подставные данные без Google-входа ----------
 // Безопасно: только отрисовка переданных строк журнала, ничего не пишет и не шлёт.
 window.__inject = (J, diary = []) => {
@@ -781,10 +957,17 @@ async function boot() {
     document.getElementById("status").textContent = "Не удалось загрузить таксономию.json";
     return;
   }
+  // стартовые слои/прозрачность из URL: ?layers=скелет,органы&skin=30 (и для deep-link, и для тестов)
+  const q0 = new URLSearchParams(location.search);
+  const LA = { skin: "кожа", muscle: "мышцы", muscles: "мышцы", bone: "скелет", bones: "скелет", skeleton: "скелет", organ: "органы", organs: "органы" };
+  if (q0.has("layers")) { const set = new Set(q0.get("layers").split(",").map(s => LA[s] || s)); for (const k of Object.keys(layerOn)) layerOn[k] = set.has(k); }
+  if (q0.has("skin")) skinOpacity = Math.max(0, Math.min(1, (+q0.get("skin") || 0) / 100));
+
   init3D();
   buildHotspots();
   buildSystemTabs();
   bindPlaneTabs();
+  bindAtlasControls();
 
   // Демо-режим: открыть index.html?demo — показать примеры без Google-входа.
   if (new URLSearchParams(location.search).has("demo")) {
