@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ТВОЁ ЗДОРОВЬЕ — Реал-3D (демо модели)</title>
+<!--
+  КОНЦЕПЦИЯ C — «Реал-3D»: настоящая 3D-модель человека (glTF), не процедурные примитивы.
+  Модель: RiggedFigure (по умолч.) и CesiumMan — из набора Khronos glTF Sample Assets
+  (https://github.com/KhronosGroup/glTF-Sample-Assets) — royalty-free примеры для glTF,
+  свободны для использования. GLTFLoader + BufferGeometryUtils вшиты локально (офлайн).
+-->
+<style>
+  :root{ --bg:#f5f7f8; --panel:#fff; --text:#1c2530; --muted:#6b7785; --accent:#2f8f6f; --border:#e1e6e9; }
+  *{ box-sizing:border-box; } html,body{ margin:0; height:100%; }
+  body{ font-family:-apple-system,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--text); }
+  header{ padding:14px 20px; background:var(--panel); border-bottom:1px solid var(--border); }
+  header h1{ font-size:17px; margin:0; } header .sub{ font-size:12px; color:var(--muted); margin-top:2px; }
+  #wrap{ max-width:1040px; margin:0 auto; padding:16px; }
+  #stage{ position:relative; background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:12px; }
+  #viewport{ width:100%; height:560px; cursor:grab; } #viewport canvas{ display:block; width:100%; height:100%; touch-action:none; }
+  #tip{ display:none; position:absolute; top:16px; left:24px; right:24px; background:#1c2530; color:#fff; font-size:13px; padding:7px 11px; border-radius:7px; pointer-events:none; }
+  #hint{ position:absolute; left:24px; bottom:12px; font-size:11px; color:var(--muted); }
+  #badge{ position:absolute; right:24px; top:16px; font-size:12px; color:var(--muted); background:#eef3f2; border:1px solid var(--border); border-radius:18px; padding:5px 11px; }
+  .toolbar{ margin-top:12px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .toolbar button{ border:1px solid var(--border); background:var(--panel); color:var(--text); border-radius:16px; padding:5px 12px; font-size:13px; cursor:pointer; }
+  .toolbar button.active{ background:#1c2530; color:#fff; border-color:#1c2530; }
+  .toolbar .label{ font-size:12px; color:var(--muted); }
+  #err{ display:none; margin-top:10px; background:#fdecea; color:#a3261c; border:1px solid #f5c6c0; border-radius:8px; padding:8px 12px; font-size:13px; white-space:pre-wrap; }
+  .credit{ font-size:11px; color:var(--muted); margin-top:10px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🧑 ТВОЁ ЗДОРОВЬЕ — Реал-3D <span style="color:var(--muted);font-weight:400;">(концепция C — настоящая 3D-модель)</span></h1>
+  <div class="sub">Реалистичная модель человека вместо процедурной фигуры. Клик по оранжевой метке — зона тела.</div>
+</header>
+<div id="wrap">
+  <div id="stage">
+    <div id="tip"></div>
+    <div id="badge">загрузка модели…</div>
+    <div id="viewport"></div>
+    <div id="hint">вращать — потянуть · зум — колесо/щипок · клик по метке — зона</div>
+  </div>
+  <div class="toolbar">
+    <span class="label">Модель:</span>
+    <button data-model="человек-текстурный.glb" class="active">Человек (текстура)</button>
+    <button data-model="человек.glb">Манекен (чистый)</button>
+    <span class="label" style="margin-left:10px;">Метки зон:</span>
+    <button id="toggle-spots" class="active">вкл</button>
+  </div>
+  <div id="err"></div>
+  <div class="credit">Модель: Khronos glTF Sample Assets (RiggedFigure / CesiumMan), royalty-free. GLTFLoader и three.js вшиты локально — работает офлайн.</div>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.js" } }
+</script>
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "./vendor/OrbitControls.js";
+import { GLTFLoader } from "./модель/GLTFLoader.js";
+
+// fy: доля высоты сверху (0 = макушка, 1 = стопы); fx: доля полуширины
+const ZONES = [
+  { name:"Голова",  fy:0.06, fx:0 },
+  { name:"Грудь",   fy:0.30, fx:0 },
+  { name:"Живот",   fy:0.45, fx:0 },
+  { name:"Левое колено",  fy:0.74, fx:-0.28 },
+  { name:"Правое колено", fy:0.74, fx:0.28 },
+];
+
+let scene, camera, renderer, controls, raycaster = new THREE.Raycaster();
+let currentModel = null, spots = [], spotsOn = true, box = new THREE.Box3(), R = 1;
+let CENTER = new THREE.Vector3(), BONEPTS = [];
+const viewport = document.getElementById("viewport");
+
+function showErr(msg){ const e=document.getElementById("err"); e.style.display="block"; e.textContent += msg + "\n"; }
+window.addEventListener("error", (e)=> showErr("Ошибка: " + (e.message||e.error)));
+
+function init(){
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(45, viewport.clientWidth/viewport.clientHeight, 0.01, 100);
+  renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
+  renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.setSize(viewport.clientWidth, viewport.clientHeight);
+  viewport.appendChild(renderer.domElement);
+
+  scene.add(new THREE.AmbientLight(0xffffff, 0.95));
+  const d1 = new THREE.DirectionalLight(0xffffff, 0.8); d1.position.set(2,4,3); scene.add(d1);
+  const d2 = new THREE.DirectionalLight(0xffffff, 0.35); d2.position.set(-2,2,-3); scene.add(d2);
+
+  controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.dampingFactor = 0.08;
+
+  renderer.domElement.addEventListener("pointerdown", e => (down = {x:e.clientX,y:e.clientY}));
+  renderer.domElement.addEventListener("pointerup", onUp);
+  window.addEventListener("resize", onResize);
+  loadModel("человек-текстурный.glb");
+  animate();
+}
+
+function loadModel(file){
+  if (currentModel){ scene.remove(currentModel); }
+  spots.forEach(s=>scene.remove(s)); spots = [];
+  document.getElementById("badge").textContent = "загрузка модели…";
+  new GLTFLoader().load("./модель/"+file, (gltf)=>{
+    currentModel = gltf.scene;
+    scene.add(currentModel);
+    currentModel.updateWorldMatrix(true, true);
+    // Для skinned-моделей Box3 врёт (bind-поза) — берём мировые позиции КОСТЕЙ скелета.
+    let skel = null;
+    currentModel.traverse(o => { if (o.isSkinnedMesh && o.skeleton && !skel) skel = o.skeleton; });
+    BONEPTS = [];
+    if (skel) skel.bones.forEach(b => { const v = new THREE.Vector3(); b.getWorldPosition(v); BONEPTS.push(v); });
+    if (!BONEPTS.length) { box.setFromObject(currentModel); BONEPTS = [box.min.clone(), box.max.clone()]; }
+    CENTER.set(0,0,0); BONEPTS.forEach(p => CENTER.add(p)); CENTER.divideScalar(BONEPTS.length);
+    R = 0.2; BONEPTS.forEach(p => R = Math.max(R, p.distanceTo(CENTER)));
+    placeSpots();
+    frameCamera();
+    document.getElementById("badge").textContent = `модель загружена · ${file}` + (skel ? ` · костей: ${BONEPTS.length}` : " · без скелета");
+  },
+  undefined,
+  (err)=>{ showErr("Не удалось загрузить "+file+": "+err); document.getElementById("badge").textContent="ошибка загрузки"; });
+}
+
+function placeSpots(){
+  // Привязка к костям: сортируем кости по высоте, берём на нужных долях высоты.
+  const sorted = [...BONEPTS].sort((a,b) => b.y - a.y);
+  const topY = sorted[0].y, botY = sorted[sorted.length-1].y, H = Math.max(topY - botY, 0.1);
+  const pick = f => sorted[Math.min(sorted.length-1, Math.round(f*(sorted.length-1)))];
+  const r = Math.max(H*0.04, 0.03), zF = CENTER.z + R*0.35;
+  for (const z of ZONES){
+    const base = pick(z.fy);                              // кость на доле высоты z.fy (0=верх)
+    const m = new THREE.Mesh(new THREE.SphereGeometry(r, 16, 14),
+      new THREE.MeshStandardMaterial({ color:0xff8a3d, emissive:0x822c00, emissiveIntensity:0.25 }));
+    m.position.set(base.x + z.fx*H*0.12, base.y, zF);     // X от кости, вперёд по Z
+    m.userData = { name:z.name }; m.visible = spotsOn;
+    scene.add(m); spots.push(m);
+  }
+}
+
+function frameCamera(){
+  const fov = camera.fov * Math.PI/180;
+  const dist = R / Math.sin(fov/2) * 1.25;
+  controls.target.copy(CENTER);
+  camera.position.set(CENTER.x, CENTER.y, CENTER.z + dist);
+  camera.near = dist/200; camera.far = dist*20; camera.updateProjectionMatrix();
+  controls.update();
+}
+
+let down = null;
+function onUp(e){
+  if (!down) return;
+  const moved = Math.hypot(e.clientX-down.x, e.clientY-down.y); down = null;
+  if (moved > 6) return;
+  const rect = renderer.domElement.getBoundingClientRect();
+  const mouse = new THREE.Vector2(((e.clientX-rect.left)/rect.width)*2-1, -((e.clientY-rect.top)/rect.height)*2+1);
+  raycaster.setFromCamera(mouse, camera);
+  const hit = raycaster.intersectObjects(spots.filter(s=>s.visible));
+  const tip = document.getElementById("tip");
+  if (hit.length){ tip.textContent = "📍 " + hit[0].object.userData.name; tip.style.display="block"; }
+  else tip.style.display="none";
+}
+
+function onResize(){
+  camera.aspect = viewport.clientWidth/viewport.clientHeight; camera.updateProjectionMatrix();
+  renderer.setSize(viewport.clientWidth, viewport.clientHeight);
+}
+function animate(){ requestAnimationFrame(animate); controls.update(); renderer.render(scene, camera); }
+
+// UI
+document.querySelectorAll(".toolbar button[data-model]").forEach(b=>{
+  b.addEventListener("click", ()=>{
+    document.querySelectorAll(".toolbar button[data-model]").forEach(x=>x.classList.remove("active"));
+    b.classList.add("active"); loadModel(b.dataset.model);
+  });
+});
+document.getElementById("toggle-spots").addEventListener("click", (e)=>{
+  spotsOn = !spotsOn; spots.forEach(s=>s.visible=spotsOn);
+  e.target.classList.toggle("active", spotsOn); e.target.textContent = spotsOn ? "вкл" : "выкл";
+});
+
+init();
+</script>
+</body>
+</html>
