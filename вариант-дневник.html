@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ТВОЁ ЗДОРОВЬЕ — Дневник</title>
+<style>
+  :root{--bg:#f5f7f8;--panel:#fff;--text:#1c2530;--muted:#6b7785;--accent:#2f8f6f;--border:#e1e6e9;--feel:#ff8a3d;--diag:#2f8f6f;}
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);}
+  header{padding:14px 20px;display:flex;align-items:center;justify-content:space-between;background:var(--panel);border-bottom:1px solid var(--border);flex-wrap:wrap;gap:8px;}
+  header h1{font-size:17px;margin:0;}
+  #signin-area button{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:14px;cursor:pointer;}
+  #status{font-size:12px;color:var(--muted);margin-left:8px;}
+  #wrap{max-width:1040px;margin:0 auto;padding:18px;}
+  .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px;}
+  .lbl{font-size:12px;color:var(--muted);margin-right:4px;}
+  .pbtn{border:1px solid var(--border);background:var(--panel);border-radius:18px;padding:6px 13px;font-size:13px;cursor:pointer;}
+  .pbtn.active{background:#1c2530;color:#fff;border-color:#1c2530;}
+  .seg{display:inline-flex;border:1px solid var(--border);border-radius:18px;overflow:hidden;}
+  .seg button{border:none;background:var(--panel);padding:6px 13px;font-size:13px;cursor:pointer;}
+  .seg button.active{background:var(--accent);color:#fff;}
+  .cols{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start;}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px;}
+  #figures{flex:1 1 420px;position:relative;}
+  .figs{display:flex;gap:10px;justify-content:center;}
+  .fig{flex:1;text-align:center;}
+  .fig h3{font-size:13px;color:var(--muted);margin:0 0 6px;font-weight:600;}
+  svg{width:100%;max-width:230px;height:auto;}
+  .zone{stroke:#cdd6da;stroke-width:1.2;cursor:pointer;transition:filter .15s;}
+  .zone:hover{filter:brightness(1.07);stroke:#1c2530;stroke-width:1.6;}
+  .legend{display:flex;gap:4px;align-items:center;justify-content:center;margin-top:10px;font-size:11px;color:var(--muted);flex-wrap:wrap;}
+  .legend i{width:20px;height:12px;border-radius:3px;display:inline-block;border:1px solid #cdd6da;}
+  #side{flex:1 1 300px;display:flex;flex-direction:column;gap:14px;}
+  h2{font-size:15px;margin:0 0 10px;}
+  ul.plist{list-style:none;margin:0;padding:0;}
+  ul.plist li{padding:8px 10px;background:#f0f4f3;border-radius:8px;margin-bottom:6px;font-size:13px;display:flex;justify-content:space-between;gap:8px;}
+  ul.plist li.empty{color:var(--muted);background:none;padding-left:0;}
+  .bar{height:6px;border-radius:3px;background:#e34a33;display:inline-block;vertical-align:middle;margin-right:6px;}
+  .feed li{display:block;}
+  .feed .d{color:var(--muted);font-size:11px;}
+  #tip{display:none;position:absolute;background:#1c2530;color:#fff;font-size:12px;padding:7px 11px;border-radius:7px;max-width:260px;line-height:1.4;pointer-events:none;z-index:5;}
+  #timeline{margin-top:14px;}
+  #day-slider{width:100%;}
+  .dayline{font-size:13px;font-weight:600;margin-bottom:4px;}
+  #login{padding:50px 20px;text-align:center;color:var(--muted);}
+  #app{display:none;}
+  #app.ready{display:block;}
+</style>
+</head>
+<body>
+<header>
+  <div><h1>📔 ТВОЁ ЗДОРОВЬЕ — Дневник</h1></div>
+  <div id="signin-area"><button id="signin-btn">Войти через Google</button><span id="status"></span></div>
+</header>
+
+<div id="login">Данные приватны — загрузятся только после входа через Google. Для примера открой эту страницу с <b>?demo</b>.</div>
+
+<div id="wrap"><div id="app">
+  <div class="row">
+    <span class="lbl">Период:</span>
+    <button class="pbtn" data-days="7">Неделя</button>
+    <button class="pbtn active" data-days="30">Месяц</button>
+    <button class="pbtn" data-days="90">3 месяца</button>
+    <button class="pbtn" data-days="365">Год</button>
+    <button class="pbtn" data-days="all">Всё</button>
+    <span style="flex:1"></span>
+    <span class="lbl">Показать:</span>
+    <span class="seg"><button id="seg-period" class="active">за период</button><button id="seg-day">за день</button></span>
+  </div>
+
+  <div class="cols">
+    <div class="card" id="figures">
+      <div id="tip"></div>
+      <div class="figs">
+        <div class="fig"><h3>Спереди</h3><svg id="svg-front" viewBox="0 0 200 480"></svg></div>
+        <div class="fig"><h3>Сзади</h3><svg id="svg-back" viewBox="0 0 200 480"></svg></div>
+      </div>
+      <div class="legend" id="legend"></div>
+    </div>
+
+    <div id="side">
+      <div class="card">
+        <h2>🔥 Топ недугов <span id="top-sub" style="font-weight:400;color:var(--muted);font-size:12px"></span></h2>
+        <ul class="plist" id="top-list"><li class="empty">—</li></ul>
+      </div>
+      <div class="card">
+        <h2>📝 Последние записи</h2>
+        <ul class="plist feed" id="feed"><li class="empty">—</li></ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="timeline">
+    <div class="dayline" id="dayline">—</div>
+    <input type="range" id="day-slider" min="0" max="0" value="0">
+  </div>
+</div></div>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script>
+// ===== настройки (как в index.html) =====
+const CLIENT_ID="1097604409714-cj0tn3kmfku1ksscm16pr9k4a4otquof.apps.googleusercontent.com";
+const SPREADSHEET_ID="1UwAxqE2HfZPMFh08KfOiqz17jthhmpXqqBsCyyKo7wQ";
+const JOURNAL_RANGE="Журнал!A1:K5000";
+const SCOPES="https://www.googleapis.com/auth/spreadsheets.readonly";
+
+// ===== зоны силуэта (маппинг журнал-зон на области тела) =====
+// paired: рисуются на ОБОИХ силуэтах (лев/прав); shape=[тип,x,y,...] для левой, правая зеркалится
+const PAIRED=[
+ {base:"плечо",name:"Плечо",zones:["плечо"],shape:["ellipse",58,102,18,15]},
+ {base:"рука",name:"Рука",zones:["локоть"],shape:["rect",36,112,18,96,9]},
+ {base:"кисть",name:"Кисть",zones:["кисть"],shape:["ellipse",47,224,11,16]},
+ {base:"бедро",name:"Бедро",zones:["бедро"],shape:["rect",74,256,24,86,10]},
+ {base:"колено",name:"Колено",zones:["колено"],shape:["ellipse",86,352,13,12]},
+ {base:"голень",name:"Голень",zones:["голень"],shape:["rect",78,362,18,78,8]},
+ {base:"стопа",name:"Стопа",zones:["стопа"],shape:["ellipse",84,450,14,10]},
+];
+const FRONT=[
+ {id:"голова",name:"Голова",zones:["голова","лицо","мозг"],shape:["ellipse",100,40,26,32]},
+ {id:"шея",name:"Шея",zones:["шея"],shape:["rect",88,70,24,16,6]},
+ {id:"грудь",name:"Грудь",zones:["грудь","горло","сердце","лёгкие"],shape:["rect",64,88,72,70,14]},
+ {id:"живот",name:"Живот",zones:["живот-стенка","желудок","печень","кишечник"],shape:["rect",68,158,64,64,12]},
+ {id:"таз",name:"Таз / низ живота",zones:["таз","мочевой"],shape:["rect",70,222,60,34,10]},
+];
+const BACK=[
+ {id:"голова_b",name:"Голова",zones:["голова","мозг"],shape:["ellipse",100,40,26,32],dup:true},
+ {id:"шея_b",name:"Шея",zones:["шея"],shape:["rect",88,70,24,16,6],dup:true},
+ {id:"спина",name:"Спина",zones:["спина"],shape:["rect",64,88,72,92,14]},
+ {id:"поясница",name:"Поясница / почки",zones:["поясница","почки"],shape:["rect",68,180,64,56,12]},
+];
+
+// ===== палитра частоты (последовательная, серый→красный) =====
+const BUCKETS=[{max:0,c:"#e9eef0",t:"нет"},{max:0.25,c:"#ffd9b3",t:"редко"},{max:0.5,c:"#ffab66",t:""},{max:0.75,c:"#f0592b",t:""},{max:1.01,c:"#b30000",t:"часто"}];
+function colorFor(count,maxCount){ if(!count)return BUCKETS[0].c; const t=maxCount?count/maxCount:0; for(const b of BUCKETS)if(t<=b.max)return b.c; return "#b30000"; }
+
+// ===== состояние =====
+let accessToken=null, journalRows=[], timeline=[], periodDays="30", mode="period", dayIndex=0;
+
+function toISO(d){const[a,b,c]=d.split(".");return`${c}-${b}-${a}`;}
+function todayRU(){return new Date().toLocaleDateString("ru-RU");}
+
+// ---- отрисовка силуэтов ----
+function shapeSVG(id,shape,fill,title){
+  const t=shape[0];
+  const attrs=`class="zone" data-id="${id}" fill="${fill}"`;
+  if(t==="ellipse")return`<ellipse ${attrs} cx="${shape[1]}" cy="${shape[2]}" rx="${shape[3]}" ry="${shape[4]}"><title>${title}</title></ellipse>`;
+  const r=shape[5]||0;
+  return`<rect ${attrs} x="${shape[1]}" y="${shape[2]}" width="${shape[3]}" height="${shape[4]}" rx="${r}"><title>${title}</title></rect>`;
+}
+function mirror(shape){ // зеркалим по x вокруг центра 100
+  const s=shape.slice();
+  if(s[0]==="ellipse")s[1]=200-s[1];
+  else s[1]=200-s[1]-s[3];
+  return s;
+}
+// подсчёт: сколько РАЗНЫХ дней в наборе dates зона встречалась (c учётом стороны)
+function countFor(zones,side,dates){
+  const days=new Set();
+  for(const r of journalRows){
+    if(!dates.has(r.дата))continue;
+    if(!zones.includes(r.зона))continue;
+    if(side&&(r.сторона||"")!==side)continue;
+    days.add(r.дата);
+  }
+  return days.size;
+}
+function activeDates(){
+  if(mode==="day")return new Set([timeline[dayIndex]]);
+  if(periodDays==="all")return new Set(timeline);
+  const n=+periodDays, end=timeline.length?new Date(toISO(timeline[timeline.length-1])):new Date();
+  const set=new Set();
+  for(const d of timeline){const dt=new Date(toISO(d));if((end-dt)/864e5<=n-1)set.add(d);}
+  if(!set.size&&timeline.length)set.add(timeline[timeline.length-1]);
+  return set;
+}
+
+function render(){
+  const dates=activeDates();
+  // собрать все счётчики для нормировки
+  const entries=[]; // {regionName,side,count,zones}
+  const push=(name,side,zones)=>{const c=countFor(zones,side,dates);entries.push({name:name+(side?` (${side})`:""),side,count:c,zones});return c;};
+  const counts={}; // key -> count для раскраски
+  let maxC=0;
+  const regFront=[],regBack=[];
+  // одиночные
+  for(const r of FRONT){const c=push(r.name,"",r.zones);counts["f_"+r.id]=c;maxC=Math.max(maxC,c);}
+  for(const r of BACK){const c=r.dup?countFor(r.zones,"",dates):push(r.name,"",r.zones);counts["b_"+r.id]=c;maxC=Math.max(maxC,c);}
+  // парные (на оба силуэта)
+  for(const p of PAIRED)for(const side of["лев","прав"]){const c=countFor(p.zones,side,dates);counts["p_"+p.base+"_"+side]=c;maxC=Math.max(maxC,c);entries.push({name:p.name+` (${side})`,side,count:c,zones:p.zones});}
+  // SVG
+  const fS=[],bS=[];
+  for(const r of FRONT)fS.push(shapeSVG("f_"+r.id,r.shape,colorFor(counts["f_"+r.id],maxC),`${r.name}: ${counts["f_"+r.id]} дн.`));
+  for(const r of BACK)bS.push(shapeSVG("b_"+r.id,r.shape,colorFor(counts["b_"+r.id],maxC),`${r.name}: ${counts["b_"+r.id]} дн.`));
+  for(const p of PAIRED){
+    const L=p.shape, R=mirror(p.shape);
+    const cl=counts["p_"+p.base+"_лев"], cr=counts["p_"+p.base+"_прав"];
+    // ВНИМАНИЕ: лев = экранно-слева, прав = экранно-справа (как смотришь на себя в зеркало)
+    fS.push(shapeSVG("p_"+p.base+"_лев",L,colorFor(cl,maxC),`${p.name} (лев): ${cl} дн.`));
+    fS.push(shapeSVG("p_"+p.base+"_прав",R,colorFor(cr,maxC),`${p.name} (прав): ${cr} дн.`));
+    bS.push(shapeSVG("p_"+p.base+"_лев",L,colorFor(cl,maxC),`${p.name} (лев): ${cl} дн.`));
+    bS.push(shapeSVG("p_"+p.base+"_прав",R,colorFor(cr,maxC),`${p.name} (прав): ${cr} дн.`));
+  }
+  document.getElementById("svg-front").innerHTML=fS.join("");
+  document.getElementById("svg-back").innerHTML=bS.join("");
+
+  // легенда
+  document.getElementById("legend").innerHTML="Реже "+BUCKETS.map(b=>`<i style="background:${b.c}"></i>`).join("")+" чаще — цифра = дней с жалобой за период";
+
+  // топ недугов
+  const top=entries.filter(e=>e.count>0).sort((a,b)=>b.count-a.count).slice(0,8);
+  const maxT=top.length?top[0].count:1;
+  document.getElementById("top-sub").textContent=mode==="day"?`(${timeline[dayIndex]||""})`:`(за ${ {7:"неделю",30:"месяц",90:"3 мес",365:"год"}[periodDays]||"всё время" })`;
+  const tl=document.getElementById("top-list");
+  tl.innerHTML=top.length?top.map(e=>`<li><span><span class="bar" style="width:${8+60*e.count/maxT}px;background:${colorFor(e.count,maxC)}"></span>${e.name}</span><b>${e.count} дн.</b></li>`).join(""):'<li class="empty">за период жалоб нет</li>';
+
+  // лента последних
+  const fd=document.getElementById("feed");
+  const recent=journalRows.filter(r=>dates.has(r.дата)).sort((a,b)=>toISO(b.дата).localeCompare(toISO(a.дата))).slice(0,12);
+  fd.innerHTML=recent.length?recent.map(r=>{const ic=r.плоскость==="диагноз"?"🔴":"🟡";const ex=[r.что,r.характер,r.сила&&("сила "+r.сила)].filter(Boolean).join(", ");return`<li><span class="d">${r.дата}</span> ${ic} <b>${zoneTitle(r)}</b>${ex?" — "+ex:""}</li>`;}).join(""):'<li class="empty">записей нет</li>';
+}
+function zoneTitle(r){return (r.зона||"")+(r.сторона?` (${r.сторона})`:"");}
+
+// ---- клик по зоне ----
+function bindFigures(){
+  document.getElementById("figures").addEventListener("click",e=>{
+    const z=e.target.closest(".zone");const tip=document.getElementById("tip");
+    if(!z){tip.style.display="none";return;}
+    const id=z.dataset.id;const dates=activeDates();
+    // собрать записи этой зоны
+    let name="",zones=[],side="";
+    const key=id.replace(/^[fbp]_/,"");
+    const p=PAIRED.find(p=>id.startsWith("p_"+p.base+"_"));
+    if(p){name=p.name;zones=p.zones;side=id.endsWith("лев")?"лев":"прав";}
+    else{const all=[...FRONT,...BACK];const r=all.find(r=>("f_"+r.id===id)||("b_"+r.id===id));if(r){name=r.name;zones=r.zones;}}
+    const recs=journalRows.filter(r=>dates.has(r.дата)&&zones.includes(r.зона)&&(!side||(r.сторона||"")===side));
+    const days=new Set(recs.map(r=>r.дата)).size;
+    const tip2=document.getElementById("tip");
+    tip2.innerHTML=`<b>${name}${side?` (${side})`:""}</b> — ${days} дн. с жалобой`+(recs.length?"<br>"+recs.slice(0,5).map(r=>`${r.дата}: ${r.что||r.зона}${r.характер?" ("+r.характер+")":""}`).join("<br>"):"");
+    const rect=document.getElementById("figures").getBoundingClientRect();
+    tip2.style.left=(e.clientX-rect.left+10)+"px";tip2.style.top=(e.clientY-rect.top+10)+"px";tip2.style.display="block";
+  });
+}
+
+// ---- управление ----
+function bindControls(){
+  document.querySelectorAll(".pbtn").forEach(b=>b.addEventListener("click",()=>{
+    document.querySelectorAll(".pbtn").forEach(x=>x.classList.remove("active"));b.classList.add("active");
+    periodDays=b.dataset.days;render();
+  }));
+  document.getElementById("seg-period").addEventListener("click",()=>setMode("period"));
+  document.getElementById("seg-day").addEventListener("click",()=>setMode("day"));
+  document.getElementById("day-slider").addEventListener("input",e=>{dayIndex=+e.target.value;updateDayline();render();});
+}
+function setMode(m){mode=m;document.getElementById("seg-period").classList.toggle("active",m==="period");document.getElementById("seg-day").classList.toggle("active",m==="day");document.getElementById("timeline").style.opacity=m==="day"?1:0.5;updateDayline();render();}
+function updateDayline(){document.getElementById("dayline").textContent=mode==="day"?("День: "+(timeline[dayIndex]||"—")):"Листай по дням (режим «за день»)";}
+
+// ---- данные ----
+async function fetchRange(range){
+  const url=`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(range)}`;
+  const r=await fetch(url,{headers:{Authorization:"Bearer "+accessToken}});
+  if(!r.ok)return null;return(await r.json()).values||[];
+}
+function parseJournal(v){
+  const h=v[0]||[],i=n=>h.indexOf(n);
+  return v.slice(1).filter(r=>r[i("Дата")]&&r[i("Зона")]).map(r=>({
+    дата:r[i("Дата")],плоскость:(r[i("Плоскость")]||"").trim(),система:(r[i("Система")]||"").trim(),
+    зона:(r[i("Зона")]||"").trim(),сторона:(r[i("Сторона")]||"").trim(),
+    что:r[i("Что болит")]||"",характер:r[i("Характер")]||"",сила:r[i("Сила")]||"",действие:(r[i("Действие")]||"").trim(),
+  }));
+}
+function finishLoad(){
+  timeline=[...new Set(journalRows.map(r=>r.дата))].sort((a,b)=>toISO(a).localeCompare(toISO(b)));
+  if(!timeline.length)timeline=[todayRU()];
+  dayIndex=timeline.length-1;
+  const sl=document.getElementById("day-slider");sl.max=timeline.length-1;sl.value=dayIndex;
+  document.getElementById("login").style.display="none";
+  document.getElementById("app").classList.add("ready");
+  updateDayline();render();
+}
+async function loadData(){
+  document.getElementById("status").textContent="Загружаю…";
+  const jr=await fetchRange(JOURNAL_RANGE)||[];
+  journalRows=jr.length?parseJournal(jr):[];
+  document.getElementById("status").textContent=`записей: ${journalRows.length}`;
+  finishLoad();
+}
+function initSignin(){
+  const c=google.accounts.oauth2.initTokenClient({client_id:CLIENT_ID,scope:SCOPES,callback:resp=>{
+    if(resp.error){document.getElementById("status").textContent="Ошибка: "+resp.error;return;}
+    accessToken=resp.access_token;loadData();
+  }});
+  document.getElementById("signin-btn").addEventListener("click",()=>c.requestAccessToken());
+}
+
+// ---- демо ----
+function demo(){
+  const d=n=>new Date(Date.now()-n*864e5).toLocaleDateString("ru-RU");
+  const rows=[];
+  const add=(day,пл,зона,ст,что,хар,сила)=>rows.push({дата:d(day),плоскость:пл,система:"",зона,сторона:ст||"",что,характер:хар||"",сила:сила||"",действие:"добавлен"});
+  // плечо прав — часто (7 дней)
+  [1,2,3,5,8,12,20].forEach(x=>add(x,"самочувствие","плечо","прав","боль","тянет","3"));
+  // горло — средне (4)
+  [1,2,6,15].forEach(x=>add(x,"самочувствие","горло","","першит","","2"));
+  // голова мигрень (3)
+  [4,10,22].forEach(x=>add(x,"самочувствие","голова","","мигрень","пульсирует","6"));
+  // колено лев — редко (2)
+  [7,18].forEach(x=>add(x,"самочувствие","колено","лев","боль","ноет","3"));
+  // поясница — диагноз (стоит давно)
+  add(28,"диагноз","поясница","","остеохондроз","","");
+  [9,19,27].forEach(x=>add(x,"самочувствие","поясница","","ноет","тянет","4"));
+  // желудок диагноз
+  add(26,"диагноз","желудок","","гастрит","","");
+  [3,14].forEach(x=>add(x,"самочувствие","желудок","","тяжесть","давит","3"));
+  journalRows=rows;
+  document.getElementById("status").textContent="демо-режим";
+  finishLoad();
+}
+
+// ---- старт ----
+bindFigures();bindControls();
+if(new URLSearchParams(location.search).has("demo")){demo();}
+else{window.addEventListener("load",initSignin);if(window.google&&google.accounts)initSignin();}
+</script>
+</body>
+</html>

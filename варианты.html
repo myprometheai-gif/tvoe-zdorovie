@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ТВОЁ ЗДОРОВЬЕ — 3 концепции</title>
+<style>
+  :root{--bg:#f5f7f8;--panel:#fff;--text:#1c2530;--muted:#6b7785;--accent:#2f8f6f;--border:#e1e6e9}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text)}
+  header{padding:22px 20px;text-align:center;background:var(--panel);border-bottom:1px solid var(--border)}
+  header h1{margin:0;font-size:22px}
+  header p{margin:8px auto 0;color:var(--muted);max-width:620px;font-size:14px;line-height:1.5}
+  .wrap{max-width:1040px;margin:0 auto;padding:22px 16px}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:20px;display:flex;flex-direction:column}
+  .card .tag{font-size:12px;font-weight:700;letter-spacing:.04em;color:var(--accent);text-transform:uppercase}
+  .card h2{margin:6px 0 4px;font-size:19px}
+  .card .sub{color:var(--muted);font-size:13px;margin-bottom:12px}
+  .card ul{margin:0 0 16px;padding-left:18px;font-size:13.5px;line-height:1.6;color:var(--text)}
+  .card ul li{margin-bottom:3px}
+  .card .spacer{flex:1}
+  .btn{display:block;text-align:center;text-decoration:none;background:var(--accent);color:#fff;border-radius:10px;padding:11px;font-size:14px;font-weight:600}
+  .btn:hover{opacity:.92}
+  .btn.ghost{background:transparent;color:var(--accent);border:1px solid var(--accent);margin-top:8px}
+  .emoji{font-size:30px}
+  .note{color:var(--muted);font-size:13px;text-align:center;margin-top:24px;line-height:1.6}
+  @media (prefers-color-scheme:dark){:root{--bg:#161a1d;--panel:#1f2529;--text:#e8edf0;--muted:#9aa7b0;--border:#2d353b}}
+</style>
+</head>
+<body>
+<header>
+  <h1>🩺 ТВОЁ ЗДОРОВЬЕ — 3 концепции манекена</h1>
+  <p>Три разных направления одного дневника здоровья. Открой каждое в демо-режиме (на подставных данных, без входа), покрути, сравни — и скажи, по какому пойдём. Выбранное доведу до полного.</p>
+</header>
+<div class="wrap">
+  <div class="cards">
+
+    <div class="card">
+      <div class="emoji">🫀</div>
+      <div class="tag">Концепция A</div>
+      <h2>Атлас ПРО</h2>
+      <div class="sub">Учебный анатомический атлас (как АНАТОМИКУМ), на своей лёгкой геометрии</div>
+      <ul>
+        <li>4 слоя: кожа / мышцы / скелет / органы</li>
+        <li>Ползунок прозрачности кожи («расслаивание»)</li>
+        <li>✂️ Плоскости-сечения (сагиттальное/горизонтальное/фронтальное)</li>
+        <li>🔍 Поиск структуры по названию + подлёт камеры</li>
+        <li>Быстрые виды, смена пола, клик → название</li>
+      </ul>
+      <div class="spacer"></div>
+      <a class="btn" href="вариант-атлас.html?demo">Открыть демо</a>
+      <a class="btn ghost" href="вариант-атлас.html?demo&layers=skeleton,organ&skin=25&view=three">Скелет + органы</a>
+    </div>
+
+    <div class="card">
+      <div class="emoji">📔</div>
+      <div class="tag">Концепция B</div>
+      <h2>Дневник</h2>
+      <div class="sub">Упор на пользу: где и как часто у тебя болело</div>
+      <ul>
+        <li>Тепловая карта тела (спереди/сзади): цвет = частота жалоб</li>
+        <li>Период: неделя / месяц / год / всё</li>
+        <li>🔥 «Топ недугов» за период</li>
+        <li>Лента последних записей</li>
+        <li>Таймлайн по дням</li>
+      </ul>
+      <div class="spacer"></div>
+      <a class="btn" href="вариант-дневник.html?demo">Открыть демо</a>
+    </div>
+
+    <div class="card">
+      <div class="emoji">🧑</div>
+      <div class="tag">Концепция C</div>
+      <h2>Реал-3D</h2>
+      <div class="sub">Фотореализм: настоящая 3D-модель (путь АНАТОМИКУМа)</div>
+      <ul>
+        <li>Реальная анатомическая glTF-модель</li>
+        <li>Вращение, глубокий зум</li>
+        <li>Зоны-хотспоты с привязкой симптомов</li>
+        <li>Максимально близко к atlas.trust.moscow</li>
+        <li>Тяжелее по весу, зависит от модели/лицензии</li>
+      </ul>
+      <div class="spacer"></div>
+      <a class="btn" href="вариант-модель.html">Открыть</a>
+    </div>
+
+  </div>
+
+  <div class="note">
+    Для справки: текущая рабочая версия — <a href="index.html?demo">v6 (атлас-слои)</a> · и <a href="отчёт.html?demo">отчёт для врача</a>.<br>
+    Концепции независимы: выбор одной не удаляет остальные.
+  </div>
+</div>
+</body>
+</html>

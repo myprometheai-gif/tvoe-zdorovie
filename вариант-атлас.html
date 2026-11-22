@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ТВОЁ ЗДОРОВЬЕ</title>
+<style>
+  :root {
+    --bg: #f5f7f8;
+    --panel: #ffffff;
+    --text: #1c2530;
+    --muted: #6b7785;
+    --accent: #2f8f6f;
+    --border: #e1e6e9;
+    --feel: #ff8a3d;
+    --diag: #2f8f6f;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  header {
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+  }
+  header h1 { font-size: 18px; margin: 0; }
+  #profile-line { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  #signin-area button {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  #signin-area button:hover { opacity: 0.9; }
+  #status { font-size: 13px; color: var(--muted); margin-left: 10px; }
+  #signin-area { display: flex; align-items: center; gap: 10px; }
+  .report-link {
+    display: inline-block; text-decoration: none;
+    border: 1px solid var(--accent); color: var(--accent);
+    border-radius: 8px; padding: 7px 13px; font-size: 14px;
+  }
+  .report-link:hover { background: var(--accent); color: #fff; }
+
+  #app { display: none; padding: 20px; max-width: 1040px; margin: 0 auto; }
+  #app.ready { display: block; }
+
+  /* --- переключатели систем и плоскостей --- */
+  .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .tabs .tab {
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+    border-radius: 20px;
+    padding: 6px 12px;
+    font-size: 13px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .tabs .tab.active { background: #1c2530; color: #fff; border-color: #1c2530; }
+  .tabs.planes .tab.active[data-plane="самочувствие"] { background: var(--feel); border-color: var(--feel); }
+  .tabs.planes .tab.active[data-plane="диагноз"] { background: var(--diag); border-color: var(--diag); }
+  .tabs-label { font-size: 12px; color: var(--muted); align-self: center; margin-right: 6px; }
+
+  #atlas-bar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 12px; padding: 8px 12px; margin-bottom: 12px;
+  }
+  .layer-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    border: 1px solid var(--border); border-radius: 18px;
+    padding: 4px 10px; font-size: 13px; cursor: pointer; user-select: none;
+  }
+  .layer-chip input { accent-color: var(--accent); cursor: pointer; }
+  .atlas-sep { width: 1px; align-self: stretch; background: var(--border); margin: 2px 2px; }
+  .mini-btn {
+    border: 1px solid var(--border); background: var(--panel); color: var(--text);
+    border-radius: 16px; padding: 4px 10px; font-size: 12px; cursor: pointer;
+  }
+  .mini-btn:hover { background: #eef3f2; }
+  #skin-opacity { width: 120px; accent-color: var(--accent); }
+
+  .layout { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; }
+
+  #figure-wrap {
+    flex: 1 1 400px;
+    background: var(--panel);
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    padding: 16px;
+    position: relative;
+    min-height: 460px;
+  }
+  #figure-viewport { width: 100%; height: 460px; cursor: grab; }
+  #figure-viewport canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  #figure-hint {
+    position: absolute; left: 24px; bottom: 10px;
+    font-size: 11px; color: var(--muted);
+  }
+  #sex-badge {
+    position: absolute; right: 24px; top: 14px;
+    font-size: 12px; font-weight: 600; color: var(--text);
+    background: #eef3f2; border: 1px solid var(--border);
+    border-radius: 20px; padding: 5px 12px; pointer-events: none;
+  }
+  #zone-tip {
+    display: none; position: absolute; top: 14px; left: 24px; right: 24px;
+    background: #1c2530; color: #fff; font-size: 12px;
+    padding: 6px 10px; border-radius: 6px; pointer-events: none;
+    line-height: 1.4;
+  }
+
+  #side-panel {
+    flex: 0 0 280px;
+    background: var(--panel);
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    padding: 16px;
+    min-height: 460px;
+  }
+  #side-panel h2 { font-size: 15px; margin: 0 0 10px; }
+  #side-panel h2:not(:first-child) { margin-top: 18px; }
+  ul.plist { list-style: none; margin: 0; padding: 0; }
+  ul.plist li {
+    padding: 8px 10px; background: #f0f4f3; border-radius: 8px;
+    margin-bottom: 6px; font-size: 13px;
+  }
+  ul.plist li.empty { color: var(--muted); background: none; padding-left: 0; }
+  ul.plist li .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+
+  .controls {
+    margin-top: 18px;
+    background: var(--panel);
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    padding: 16px 20px;
+  }
+  .controls button {
+    background: var(--accent); color: white; border: none;
+    border-radius: 8px; padding: 8px 14px; font-size: 14px; cursor: pointer;
+  }
+  .date-label { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
+  .note-text { font-size: 13px; color: var(--muted); margin-bottom: 10px; min-height: 18px; }
+  #day-slider { width: 100%; }
+  .tick-row { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .play-row { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+  .play-row label { font-size: 12px; color: var(--muted); }
+  #speed { width: 140px; }
+
+  #login-screen { padding: 60px 20px; text-align: center; }
+  #login-screen p { color: var(--muted); max-width: 420px; margin: 10px auto 20px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>🩺 ТВОЁ ЗДОРОВЬЕ — Атлас ПРО</h1>
+    <div id="profile-line"></div>
+  </div>
+  <div id="signin-area">
+    <a href="отчёт.html" class="report-link">📄 Отчёт для врача</a>
+    <button id="signin-btn">Войти через Google</button>
+    <span id="status"></span>
+  </div>
+</header>
+
+<div id="login-screen">
+  <p>Данные приватны — приложение читает твою личную таблицу «Дневник здоровья» только после того, как ты сам(а) авторизуешься через Google. Никто другой это увидеть не может.</p>
+</div>
+
+<div id="app">
+  <!-- плоскости: самочувствие / диагноз / оба -->
+  <div class="tabs planes" id="plane-tabs">
+    <span class="tabs-label">Плоскость:</span>
+    <div class="tab active" data-plane="оба">Обе</div>
+    <div class="tab" data-plane="самочувствие">🟡 Самочувствие</div>
+    <div class="tab" data-plane="диагноз">🔴 Диагноз</div>
+  </div>
+  <!-- системы тела (строятся из таксономии) -->
+  <div class="tabs systems" id="system-tabs">
+    <span class="tabs-label">Система:</span>
+    <div class="tab active" data-system="все">Все</div>
+  </div>
+
+  <!-- атлас: слои, прозрачность, пол, быстрые виды -->
+  <div id="atlas-bar">
+    <span class="tabs-label">Слои:</span>
+    <label class="layer-chip"><input type="checkbox" data-layer="кожа" checked> 🫧 Кожа</label>
+    <label class="layer-chip"><input type="checkbox" data-layer="мышцы"> 💪 Мышцы</label>
+    <label class="layer-chip"><input type="checkbox" data-layer="скелет"> 🦴 Скелет</label>
+    <label class="layer-chip"><input type="checkbox" data-layer="органы"> 🫀 Органы</label>
+    <span class="atlas-sep"></span>
+    <span class="tabs-label">Прозрачность кожи:</span>
+    <input type="range" id="skin-opacity" min="0" max="100" value="96">
+    <span class="atlas-sep"></span>
+    <button class="mini-btn" id="sex-toggle">⚥ Пол: ♂ М</button>
+    <span class="atlas-sep"></span>
+    <span class="tabs-label">Вид:</span>
+    <button class="mini-btn" data-view="front">Спереди</button>
+    <button class="mini-btn" data-view="back">Сзади</button>
+    <button class="mini-btn" data-view="left">Слева</button>
+    <button class="mini-btn" data-view="right">Справа</button>
+    <span class="atlas-sep"></span>
+    <span class="tabs-label">✂️ Сечение:</span>
+    <select id="clip-axis" class="mini-btn">
+      <option value="off">нет</option>
+      <option value="x">сагиттальное (лев/прав)</option>
+      <option value="y">горизонтальное (верх/низ)</option>
+      <option value="z">фронтальное (перёд/зад)</option>
+    </select>
+    <input type="range" id="clip-pos" min="-100" max="100" value="0" style="width:110px" title="положение плоскости сечения">
+    <span class="atlas-sep"></span>
+    <span class="tabs-label">🔍 Поиск:</span>
+    <input id="struct-search" list="struct-list" placeholder="орган / кость / мышца…"
+           style="padding:5px 9px;border:1px solid var(--border);border-radius:8px;font-size:13px;min-width:160px">
+    <datalist id="struct-list"></datalist>
+  </div>
+
+  <div class="layout">
+    <div id="figure-wrap">
+      <div id="zone-tip"></div>
+      <div id="figure-viewport"></div>
+      <div id="sex-badge">♂ Мужской</div>
+      <div id="figure-hint">вращать — потянуть · зум — колесо/щипок · клик по структуре — название</div>
+    </div>
+
+    <div id="side-panel">
+      <h2>📋 Записи за день</h2>
+      <ul class="plist" id="journal-list"><li class="empty">загрузка…</li></ul>
+      <h2>💊 Лекарства в этот день</h2>
+      <ul class="plist" id="med-list"><li class="empty">—</li></ul>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="date-label" id="date-label">—</div>
+    <div class="note-text" id="note-text"></div>
+    <input type="range" id="day-slider" min="0" max="0" value="0" list="ticks">
+    <datalist id="ticks"></datalist>
+    <div class="tick-row" id="tick-row"></div>
+    <div class="play-row">
+      <button id="play-btn">▶ Play</button>
+      <label for="speed">скорость смены дней</label>
+      <input type="range" id="speed" min="100" max="1500" step="100" value="600">
+    </div>
+  </div>
+</div>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three.module.js"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "./vendor/OrbitControls.js";
+
+// === Настройки ===
+const CLIENT_ID = "1097604409714-cj0tn3kmfku1ksscm16pr9k4a4otquof.apps.googleusercontent.com";
+const SPREADSHEET_ID = "1UwAxqE2HfZPMFh08KfOiqz17jthhmpXqqBsCyyKo7wQ";
+const DIARY_RANGE = "Лист1!A1:M2000";       // дневник по дням (сон/вес/лекарства)
+const JOURNAL_RANGE = "Журнал!A1:K5000";    // журнал симптомов/диагнозов
+const PROFILE_RANGE = "Профиль!A1:C2";
+const SCOPES = "https://www.googleapis.com/auth/spreadsheets.readonly";
+
+// Системы, у которых точки лежат ВНУТРИ тела — при их выборе делаем кожу
+// полупрозрачной, чтобы органы было видно.
+const INTERNAL_SYSTEMS = new Set(["нервная", "сердце-сосуды", "дыхание", "пищеварение", "мочеполовая"]);
+
+const FEEL_COLOR = 0xff8a3d;   // самочувствие
+const DIAG_COLOR = 0x2f8f6f;   // диагноз
+const BOTH_COLOR = 0xd14b8f;   // и то и другое в один день
+const IDLE_COLOR = 0xd9e2e6;   // точка без активной записи
+
+// ---------- state ----------
+let TAX = null;                 // таксономия.json
+let accessToken = null;
+let diaryRows = [];             // [{date, заметки, самочувствие, тренировка, лекарства, вес}]
+let journalRows = [];           // [{дата,плоскость,система,зона,сторона,что,характер,сила,действие,текст}]
+let timeline = [];              // отсортированный список дат ДД.ММ.ГГГГ (объединение дневника и журнала)
+let profile = { пол: "", возраст: "", рост: "" };
+let playTimer = null;
+let activeSystem = "все";
+let activePlane = "оба";
+let curIndex = 0;
+
+// ---------- 3D ----------
+let scene, camera, renderer, controls;
+let hotspots = [];              // {mesh, zone, side, systems[]}
+let skinMeshes = [];
+let genitalMesh = null;
+let currentSex = "мужской";     // "мужской" | "женский"
+// слои-атлас: каждый — отдельная THREE.Group, включается/выключается
+let layers = { кожа: null, мышцы: null, скелет: null, органы: null };
+let layerOn = { кожа: true, мышцы: false, скелет: false, органы: false };
+let skinOpacity = 0.96;         // ползунок прозрачности кожи (0..1)
+let labelMeshes = [];           // {mesh, name, layer} — подписи структур при клике
+let clipPlane = new THREE.Plane(new THREE.Vector3(1, 0, 0), 0); // плоскость-сечение
+let highlightMesh = null;       // подсвеченная поиском структура
+
+function init3D() {
+  const viewport = document.getElementById("figure-viewport");
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(45, viewport.clientWidth / viewport.clientHeight, 0.1, 100);
+  camera.position.set(0, 1.6, 4.4);
+
+  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.setSize(viewport.clientWidth, viewport.clientHeight);
+  renderer.localClippingEnabled = true;    // для плоскостей-сечения
+  viewport.appendChild(renderer.domElement);
+
+  scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+  const dir = new THREE.DirectionalLight(0xffffff, 0.6);
+  dir.position.set(2, 4, 3);
+  scene.add(dir);
+
+  controls = new OrbitControls(camera, renderer.domElement);
+  controls.target.set(0, 1.5, 0);
+  controls.enablePan = true;              // чтобы увести камеру к нужному участку
+  controls.minDistance = 1.1;             // глубокий зум — рассмотреть зону крупно
+  controls.maxDistance = 7;
+  controls.enableDamping = true;          // плавное вращение/зум
+  controls.dampingFactor = 0.08;
+  // отладочный ракурс для скриншотов: ?view=side | ?view=three
+  const vw = new URLSearchParams(location.search).get("view");
+  if (vw === "side") { camera.position.set(4.6, 1.6, 0.2); }
+  else if (vw === "three") { camera.position.set(3.2, 1.8, 3.2); }
+  controls.update();
+
+  buildAllLayers(currentSex);
+  updateSexBadge();
+
+  window.addEventListener("resize", onResize);
+  renderer.domElement.addEventListener("pointerdown", onPointerDown);
+  renderer.domElement.addEventListener("pointerup", onPointerUp);
+  animate();
+}
+
+// Реалистичная фигура (по канону Витрувианца, но 2 руки + 2 ноги): торс строится
+// из горизонтальных эллиптических сечений — реальная грудь/талия/бёдра/спина;
+// конечности с объёмом мышц; пропорции зависят от пола. Клик по телу меняет пол.
+// Система координат сохранена: стопы y≈0, макушка y≈2.9; точки таксономии подходят.
+
+// Параметры пола: кольца торса [rx (полуширина), y, rz (полуглубина), cz (сдвиг центра по z)]
+const BODY = {
+  "мужской": {
+    rings: [
+      [0.05,1.02,0.14,-0.02],[0.30,1.12,0.20,-0.03],[0.345,1.21,0.21,-0.04],
+      [0.33,1.37,0.195,-0.02],[0.265,1.54,0.17,0.0],[0.30,1.71,0.195,0.01],
+      [0.38,1.87,0.215,0.0],[0.435,2.01,0.225,-0.01],[0.46,2.15,0.205,-0.02],
+      [0.40,2.26,0.17,-0.02],[0.20,2.33,0.14,-0.02],
+    ],
+    armR:[0.13,0.095,0.09,0.065], thighR:[0.185,0.105], calfR:[0.115,0.06],
+    glute:0.14, breasts:false, genital:true,
+  },
+  "женский": {
+    rings: [
+      [0.05,1.02,0.15,-0.02],[0.33,1.12,0.215,-0.03],[0.40,1.21,0.225,-0.04],
+      [0.375,1.36,0.205,-0.02],[0.245,1.51,0.16,0.0],[0.275,1.69,0.185,0.01],
+      [0.335,1.86,0.205,0.0],[0.355,2.00,0.205,-0.01],[0.395,2.15,0.185,-0.02],
+      [0.345,2.26,0.16,-0.02],[0.19,2.33,0.13,-0.02],
+    ],
+    armR:[0.11,0.08,0.075,0.055], thighR:[0.195,0.10], calfR:[0.105,0.055],
+    glute:0.17, breasts:true, genital:false,
+  },
+};
+
+// Меш-труба из эллиптических колец (гладкие нормали)
+function ringMesh(rings, S = 30) {
+  const pos = [], idx = [], N = rings.length, row = S + 1;
+  for (let i = 0; i < N; i++) {
+    const r = rings[i];
+    for (let j = 0; j <= S; j++) {
+      const a = (j / S) * Math.PI * 2;
+      pos.push(r.rx * Math.cos(a), r.y, (r.cz || 0) + r.rz * Math.sin(a));
+    }
+  }
+  for (let i = 0; i < N - 1; i++)
+    for (let j = 0; j < S; j++) {
+      const a = i * row + j, b = a + 1, c = a + row, d = c + 1;
+      idx.push(a, c, b, b, c, d);
+    }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();
+  return geo;
+}
+
+function buildBody(sex) {
+  const P = BODY[sex] || BODY["мужской"];
+  const group = new THREE.Group();
+  skinMeshes = [];
+  const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
+  const skin = () => new THREE.MeshStandardMaterial({ color: 0xe8c4a8, roughness: 0.7, transparent: true, opacity: 0.96, side: THREE.DoubleSide });
+  const reg = (m) => { group.add(m); skinMeshes.push(m); return m; };
+  const put = (geo, x, y, z) => { const m = new THREE.Mesh(geo, skin()); m.position.set(x, y, z); return reg(m); };
+  const ball = (r, x, y, z, sx, sy, sz) => { const m = put(new THREE.SphereGeometry(r, 16, 14), x, y, z); if (sx) m.scale.set(sx, sy, sz); return m; };
+  const bone = (p1, p2, rA, rB) => {
+    const d = new THREE.Vector3().subVectors(p2, p1), L = d.length();
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(rB, rA, L, 16, 1, false), skin());
+    m.position.copy(p1).addScaledVector(d, 0.5);
+    m.quaternion.setFromUnitVectors(V3(0, 1, 0), d.clone().normalize());
+    return reg(m);
+  };
+
+  // торс из эллиптических сечений
+  reg(new THREE.Mesh(ringMesh(P.rings.map(r => ({ rx: r[0], y: r[1], rz: r[2], cz: r[3] }))), skin()));
+  ball(0.17, 0, 1.06, -0.02, 1.6, 0.8, 1.3);                 // низ таза (закрыть снизу)
+  ball(P.glute, -0.14, 1.13, -0.17, 1, 1.15, 1);             // ягодица лев
+  ball(P.glute,  0.14, 1.13, -0.17, 1, 1.15, 1);             // ягодица прав
+  if (P.breasts) {
+    ball(0.13, -0.15, 1.92, 0.15, 1, 0.95, 0.95);            // грудь лев
+    ball(0.13,  0.15, 1.92, 0.15, 1, 0.95, 0.95);            // грудь прав
+  }
+
+  // голова + шея
+  ball(0.27, 0, 2.70, 0.0, 0.9, 1.12, 1.0);                  // череп
+  ball(0.14, 0, 2.55, 0.08, 1.0, 0.75, 0.7);                 // челюсть/подбородок
+  bone(V3(0, 2.30, 0), V3(0, 2.55, 0.0), 0.12, 0.10);        // шея
+
+  // руки (горизонтально в стороны)
+  const [aU, aUe, aF, aFe] = P.armR;
+  for (const s of [-1, 1]) {
+    ball(0.15, s * 0.43, 2.20, 0);                            // дельта/плечо
+    bone(V3(s * 0.44, 2.21, 0), V3(s * 0.80, 2.19, 0), aU, aU * 1.05);
+    ball(aU * 0.98, s * 0.80, 2.19, 0);                       // бицепс
+    bone(V3(s * 0.80, 2.19, 0), V3(s * 0.97, 2.18, 0), aU * 1.0, aUe);
+    ball(aUe, s * 0.97, 2.18, 0);                             // локоть
+    bone(V3(s * 0.97, 2.18, 0), V3(s * 1.38, 2.17, 0), aF, aFe);
+    ball(0.10, s * 1.50, 2.17, 0, 1.15, 0.5, 0.9);            // кисть
+  }
+
+  // ноги (расставлены)
+  const [tU, tL] = P.thighR, [cU, cL] = P.calfR;
+  for (const s of [-1, 1]) {
+    ball(0.18, s * 0.30, 1.12, 0);                            // тазобедренный
+    bone(V3(s * 0.30, 1.14, 0), V3(s * 0.41, 0.80, 0.01), tU, tU * 0.92);
+    ball(tU * 0.92, s * 0.40, 0.78, 0.02);                    // бедро (мышца)
+    bone(V3(s * 0.40, 0.78, 0.02), V3(s * 0.42, 0.46, 0.01), tU * 0.9, tL);
+    ball(0.11, s * 0.42, 0.44, 0.01);                         // колено
+    bone(V3(s * 0.42, 0.44, 0.01), V3(s * 0.42, 0.30, 0), cU, cU);
+    ball(cU * 1.05, s * 0.42, 0.27, -0.03);                   // икра
+    bone(V3(s * 0.42, 0.30, 0), V3(s * 0.42, 0.08, 0), cU, cL);
+    put(new THREE.BoxGeometry(0.15, 0.08, 0.32), s * 0.42, 0.045, 0.09); // стопа
+  }
+
+  genitalMesh = null;
+  if (P.genital) genitalMesh = ball(0.07, 0, 1.08, 0.15, 1, 1.1, 1);
+
+  return group;
+}
+
+// Фабрика-помощник: put/ball/bone, привязанные к группе и материалу.
+function maker(group, matFactory) {
+  const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
+  const reg = (m) => { group.add(m); return m; };
+  const put = (geo, x, y, z) => { const m = new THREE.Mesh(geo, matFactory()); m.position.set(x, y, z); return reg(m); };
+  const ball = (r, x, y, z, sx, sy, sz) => { const m = put(new THREE.SphereGeometry(r, 16, 14), x, y, z); if (sx) m.scale.set(sx, sy, sz); return m; };
+  const bone = (p1, p2, rA, rB) => {
+    const d = new THREE.Vector3().subVectors(p2, p1), L = d.length();
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(rB, rA, L, 14, 1, false), matFactory());
+    m.position.copy(p1).addScaledVector(d, 0.5);
+    m.quaternion.setFromUnitVectors(V3(0, 1, 0), d.clone().normalize());
+    return reg(m);
+  };
+  return { put, ball, bone, V3 };
+}
+function label(m, name, layer) { m.userData = { name, layer }; labelMeshes.push({ mesh: m, name, layer }); return m; }
+
+// --- СЛОЙ: МЫШЦЫ (упрощённые крупные группы, красноватые) ---
+function buildMuscles(sex) {
+  const P = BODY[sex] || BODY["мужской"];
+  const g = new THREE.Group();
+  const { ball, V3 } = maker(g, () => new THREE.MeshStandardMaterial({ color: 0xb24a3f, roughness: 0.6 }));
+  label(ball(0.17, -0.15, 1.98, 0.15, 1, 0.8, 0.8), "Грудная мышца", "мышцы");
+  label(ball(0.17, 0.15, 1.98, 0.15, 1, 0.8, 0.8), "Грудная мышца", "мышцы");
+  for (let i = 0; i < 3; i++) label(ball(0.11, 0, 1.78 - i * 0.16, 0.16, 1.1, 0.85, 0.7), "Мышцы пресса", "мышцы");
+  label(ball(0.2, 0, 2.2, 0.0, 1.5, 0.55, 0.8), "Трапециевидная", "мышцы");
+  const [aU] = P.armR, [tU] = P.thighR, [cU] = P.calfR;
+  for (const s of [-1, 1]) {
+    label(ball(0.14, s * 0.43, 2.2, 0), "Дельтовидная", "мышцы");
+    label(ball(aU * 0.95, s * 0.72, 2.19, 0, 1.4, 0.9, 0.9), "Бицепс", "мышцы");
+    label(ball(0.08, s * 1.15, 2.175, 0, 1.9, 0.8, 0.8), "Предплечье", "мышцы");
+    label(ball(P.glute * 0.9, s * 0.14, 1.13, -0.16), "Ягодичная", "мышцы");
+    label(ball(tU * 0.88, s * 0.4, 0.95, 0.03, 1, 1.6, 1), "Квадрицепс", "мышцы");
+    label(ball(cU, s * 0.42, 0.27, -0.03, 1, 1.5, 1), "Икроножная", "мышцы");
+  }
+  return g;
+}
+
+// --- СЛОЙ: СКЕЛЕТ (череп, позвоночник, рёбра, таз, кости конечностей) ---
+function buildSkeleton() {
+  const g = new THREE.Group();
+  const mat = () => new THREE.MeshStandardMaterial({ color: 0xece6d6, roughness: 0.5, transparent: true, opacity: 1, side: THREE.DoubleSide });
+  const { put, ball, bone, V3 } = maker(g, mat);
+  label(ball(0.22, 0, 2.70, 0.0, 0.9, 1.1, 1.0), "Череп", "скелет");
+  label(ball(0.12, 0, 2.56, 0.07, 1, 0.6, 0.7), "Нижняя челюсть", "скелет");
+  for (let i = 0; i < 17; i++) label(ball(0.045, 0, 1.15 + i * 0.072, -0.07), "Позвоночник", "скелет");
+  for (let i = 0; i < 7; i++) {
+    const t = new THREE.Mesh(new THREE.TorusGeometry(1, 0.016, 8, 28), mat());
+    t.scale.set(0.30 - i * 0.004, 0.19 - i * 0.003, 1); t.position.set(0, 1.72 + i * 0.062, 0.0); t.rotation.x = Math.PI / 2;
+    g.add(t); label(t, "Ребро", "скелет");
+  }
+  label(put(new THREE.BoxGeometry(0.06, 0.34, 0.03), 0, 1.95, 0.2), "Грудина", "скелет");
+  label(bone(V3(-0.04, 2.22, 0.12), V3(-0.34, 2.2, 0.05), 0.025, 0.025), "Ключица", "скелет");
+  label(bone(V3(0.04, 2.22, 0.12), V3(0.34, 2.2, 0.05), 0.025, 0.025), "Ключица", "скелет");
+  const pel = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.05, 10, 24), mat());
+  pel.scale.set(1, 0.6, 0.7); pel.position.set(0, 1.16, -0.02); pel.rotation.x = Math.PI / 2; g.add(pel); label(pel, "Таз", "скелет");
+  for (const s of [-1, 1]) {
+    label(bone(V3(s * 0.4, 2.2, 0), V3(s * 0.96, 2.18, 0), 0.035, 0.03), "Плечевая кость", "скелет");
+    label(bone(V3(s * 0.98, 2.18, 0), V3(s * 1.4, 2.17, 0), 0.028, 0.022), "Кости предплечья", "скелет");
+    label(ball(0.05, s * 1.5, 2.17, 0, 1.3, 0.4, 0.9), "Кости кисти", "скелет");
+    label(bone(V3(s * 0.28, 1.12, 0), V3(s * 0.42, 0.45, 0.01), 0.05, 0.035), "Бедренная кость", "скелет");
+    label(bone(V3(s * 0.42, 0.45, 0.01), V3(s * 0.42, 0.08, 0), 0.035, 0.025), "Кости голени", "скелет");
+    label(ball(0.055, s * 0.42, 0.44, 0.01), "Коленная чашечка", "скелет");
+    label(put(new THREE.BoxGeometry(0.09, 0.05, 0.26), s * 0.42, 0.05, 0.09), "Кости стопы", "скелет");
+  }
+  return g;
+}
+
+// --- СЛОЙ: ОРГАНЫ (цветные, с названиями) ---
+function buildOrgans() {
+  const g = new THREE.Group();
+  const M = (c, o) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.45, transparent: true, opacity: o || 0.95, side: THREE.DoubleSide });
+  const add = (name, geo, x, y, z, color, sx, sy, sz, op) => {
+    const m = new THREE.Mesh(geo, M(color, op)); m.position.set(x, y, z); if (sx) m.scale.set(sx, sy, sz);
+    g.add(m); return label(m, name, "органы");
+  };
+  add("Головной мозг", new THREE.SphereGeometry(0.17, 20, 16), 0, 2.68, 0.0, 0xf0b7c0, 1, 0.9, 1.05);
+  add("Лёгкое", new THREE.SphereGeometry(0.13, 16, 14), -0.16, 2.05, 0.03, 0xe08a9a, 1, 1.5, 0.9, 0.9);
+  add("Лёгкое", new THREE.SphereGeometry(0.13, 16, 14), 0.16, 2.05, 0.03, 0xe08a9a, 1, 1.5, 0.9, 0.9);
+  add("Сердце", new THREE.SphereGeometry(0.1, 16, 14), -0.06, 2.0, 0.1, 0xc0392b, 1, 1.2, 0.9);
+  add("Желудок", new THREE.SphereGeometry(0.11, 16, 14), -0.1, 1.74, 0.08, 0xd9a24e, 1.2, 0.9, 0.8);
+  add("Печень", new THREE.BoxGeometry(0.32, 0.15, 0.22), 0.08, 1.72, 0.08, 0x7b3f2e);
+  add("Кишечник", new THREE.TorusKnotGeometry(0.13, 0.045, 80, 8, 2, 3), 0, 1.46, 0.08, 0xe0a58a, 1, 0.7, 0.8);
+  add("Почка", new THREE.SphereGeometry(0.07, 14, 12), -0.12, 1.58, -0.12, 0x8e5a3c, 0.8, 1.2, 0.8);
+  add("Почка", new THREE.SphereGeometry(0.07, 14, 12), 0.12, 1.58, -0.12, 0x8e5a3c, 0.8, 1.2, 0.8);
+  add("Мочевой пузырь", new THREE.SphereGeometry(0.08, 14, 12), 0, 1.3, 0.08, 0xe6cf6a, 1, 0.9, 0.9);
+  return g;
+}
+
+// Пересобрать все слои (кожа+мышцы зависят от пола; скелет+органы одинаковы).
+function buildAllLayers(sex) {
+  for (const k of Object.keys(layers)) {
+    const gr = layers[k];
+    if (gr) { scene.remove(gr); gr.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); }
+    layers[k] = null;
+  }
+  labelMeshes = [];
+  layers["кожа"] = buildBody(sex);     // задаёт skinMeshes, genitalMesh
+  layers["мышцы"] = buildMuscles(sex);
+  layers["скелет"] = buildSkeleton();
+  layers["органы"] = buildOrgans();
+  for (const k of Object.keys(layers)) scene.add(layers[k]);
+  applyLayers();
+}
+// Применить видимость слоёв + прозрачность кожи.
+function applyLayers() {
+  for (const k of Object.keys(layers)) if (layers[k]) layers[k].visible = layerOn[k];
+  setSkinOpacity(skinOpacity);
+  updateSexBadge();
+  buildStructList();
+}
+function setSex(sex) {
+  currentSex = (sex && (sex.toLowerCase().startsWith("ж") || sex === "женский")) ? "женский" : "мужской";
+  buildAllLayers(currentSex);
+  if (timeline.length) renderDay(curIndex);
+}
+function updateSexBadge() {
+  const b = document.getElementById("sex-badge");
+  if (b) b.textContent = currentSex === "женский" ? "♀ Женский" : "♂ Мужской";
+  const btn = document.getElementById("sex-toggle");
+  if (btn) btn.textContent = currentSex === "женский" ? "⚥ Пол: ♀ Ж" : "⚥ Пол: ♂ М";
+}
+
+// хотспоты строим из таксономии: парная зона -> 2 точки (лев/прав, зеркало по X)
+function buildHotspots() {
+  const group = new THREE.Group();
+  group.name = "hotspots";
+  for (const [zone, z] of Object.entries(TAX.зоны)) {
+    const sides = z.парная ? ["лев", "прав"] : [""];
+    for (const side of sides) {
+      const x = side === "лев" ? -z.x : z.x;  // прав = +x (как руки/ноги манекена)
+      const mat = new THREE.MeshStandardMaterial({ color: IDLE_COLOR });
+      const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.07, 12, 12), mat);
+      mesh.position.set(x, z.y, z.z);
+      mesh.userData = { zone, side, systems: z.системы };
+      group.add(mesh);
+      hotspots.push({ mesh, zone, side, systems: z.системы });
+    }
+  }
+  scene.add(group);
+}
+
+function setSkinOpacity(opacity) {
+  skinMeshes.forEach(m => { m.material.opacity = opacity; });
+}
+
+// Пол из листа «Профиль» задаёт начальную фигуру (клик по телу потом переключает).
+function updateGenitals(пол) { setSex((пол || "").toLowerCase().startsWith("ж") ? "женский" : "мужской"); }
+
+// ---------- выбор точки (клик) ----------
+let downPos = null;
+function onPointerDown(e) { downPos = { x: e.clientX, y: e.clientY }; }
+function onPointerUp(e) {
+  if (!downPos) return;
+  const moved = Math.hypot(e.clientX - downPos.x, e.clientY - downPos.y);
+  downPos = null;
+  if (moved > 6) return;
+  pickZone(e);
+}
+function pickZone(e) {
+  const rect = renderer.domElement.getBoundingClientRect();
+  const mouse = new THREE.Vector2(
+    ((e.clientX - rect.left) / rect.width) * 2 - 1,
+    -((e.clientY - rect.top) / rect.height) * 2 + 1
+  );
+  const raycaster = new THREE.Raycaster();
+  raycaster.setFromCamera(mouse, camera);
+  const visible = hotspots.filter(h => h.mesh.visible).map(h => h.mesh);
+  const hits = raycaster.intersectObjects(visible);
+  const tip = document.getElementById("zone-tip");
+  if (!hits.length) {
+    // мимо точки-симптома → показать название анатомической структуры видимого слоя
+    const structs = labelMeshes
+      .filter(x => layerOn[x.layer] && layers[x.layer] && layers[x.layer].visible)
+      .map(x => x.mesh);
+    const sh = raycaster.intersectObjects(structs, false);
+    if (sh.length) {
+      const u = sh[0].object.userData;
+      const layerName = { кожа: "Кожа", мышцы: "Мышца", скелет: "Кость", органы: "Орган" }[u.layer] || "";
+      tip.innerHTML = `<b>${u.name}</b>${layerName ? ` · ${layerName}` : ""}`;
+      tip.style.display = "block";
+    } else {
+      tip.style.display = "none";
+    }
+    return;
+  }
+  const ud = hits[0].object.userData;
+  const recs = matchingRecords(ud.zone, ud.side, timeline[curIndex]);
+  const zoneName = TAX.зоны[ud.zone].назв + (ud.side ? ` (${ud.side})` : "");
+  if (!recs.length) {
+    tip.innerHTML = `<b>${zoneName}</b> — записей в этот день нет`;
+  } else {
+    tip.innerHTML = `<b>${zoneName}</b><br>` + recs.map(r => {
+      const icon = r.плоскость === "диагноз" ? "🔴" : "🟡";
+      const sysName = TAX.системы[r.система] ? TAX.системы[r.система].назв : r.система;
+      const extra = [r.что, r.характер, r.сила && ("сила " + r.сила)].filter(Boolean).join(", ");
+      return `${icon} ${sysName}: ${extra || "—"}${r.текст ? ` — «${r.текст}»` : ""}`;
+    }).join("<br>");
+  }
+  tip.style.display = "block";
+}
+
+function onResize() {
+  const viewport = document.getElementById("figure-viewport");
+  camera.aspect = viewport.clientWidth / viewport.clientHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(viewport.clientWidth, viewport.clientHeight);
+}
+function animate() { requestAnimationFrame(animate); controls.update(); renderer.render(scene, camera); }
+
+// ---------- OAuth ----------
+function initSignin() {
+  const client = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID,
+    scope: SCOPES,
+    callback: (resp) => {
+      if (resp.error) { document.getElementById("status").textContent = "Ошибка входа: " + resp.error; return; }
+      accessToken = resp.access_token;
+      document.getElementById("status").textContent = "Вход выполнен";
+      loadData();
+    },
+  });
+  document.getElementById("signin-btn").addEventListener("click", () => client.requestAccessToken());
+}
+
+// ---------- загрузка данных ----------
+async function fetchRange(range) {
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(range)}`;
+  const resp = await fetch(url, { headers: { Authorization: "Bearer " + accessToken } });
+  if (!resp.ok) return null;
+  return (await resp.json()).values || [];
+}
+
+async function loadData() {
+  document.getElementById("status").textContent = "Загружаю таблицу…";
+
+  const diary = await fetchRange(DIARY_RANGE) || [];
+  const dh = diary[0] || [];
+  const di = (n) => dh.indexOf(n);
+  diaryRows = diary.slice(1).filter(r => r[di("Дата")]).map(r => ({
+    date: r[di("Дата")],
+    заметки: r[di("Заметки")] || "",
+    самочувствие: r[di("Самочувствие")] || "",
+    тренировка: r[di("Тренировка")] || "",
+    лекарства: r[di("Лекарства")] || "",
+    вес: r[di("Вес")] || "",
+  }));
+
+  const jr = await fetchRange(JOURNAL_RANGE) || [];
+  const jh = jr[0] || [];
+  const ji = (n) => jh.indexOf(n);
+  journalRows = jr.slice(1).filter(r => r[ji("Дата")] && r[ji("Зона")]).map(r => ({
+    дата: r[ji("Дата")],
+    плоскость: (r[ji("Плоскость")] || "").trim(),
+    система: (r[ji("Система")] || "").trim(),
+    зона: (r[ji("Зона")] || "").trim(),
+    сторона: (r[ji("Сторона")] || "").trim(),
+    что: r[ji("Что болит")] || "",
+    характер: r[ji("Характер")] || "",
+    сила: r[ji("Сила")] || "",
+    действие: (r[ji("Действие")] || "добавлен").trim(),
+    текст: r[ji("Исходный текст")] || "",
+  }));
+
+  // объединённая ось времени (даты из дневника + журнала)
+  const dates = new Set([...diaryRows.map(r => r.date), ...journalRows.map(r => r.дата)]);
+  timeline = [...dates].sort((a, b) => toISO(a).localeCompare(toISO(b)));
+  if (!timeline.length) timeline = [new Date().toLocaleDateString("ru-RU")];
+
+  await loadProfile();
+
+  document.getElementById("status").textContent =
+    `Дней: ${timeline.length} · записей в журнале: ${journalRows.length}`;
+  document.getElementById("login-screen").style.display = "none";
+  document.getElementById("app").classList.add("ready");
+  onResize();
+
+  setupSlider();
+  renderDay(timeline.length - 1);
+}
+
+async function loadProfile() {
+  const v = await fetchRange(PROFILE_RANGE);
+  if (v) {
+    const h = v[0] || [], row = v[1] || [];
+    const g = (n) => { const i = h.indexOf(n); return i === -1 ? "" : (row[i] || ""); };
+    profile = { пол: g("Пол"), возраст: g("Возраст"), рост: g("Рост") };
+  }
+  updateGenitals(profile.пол);
+  renderProfileLine();
+}
+function latestWeight() {
+  for (let i = diaryRows.length - 1; i >= 0; i--) if (diaryRows[i].вес) return diaryRows[i].вес;
+  return "";
+}
+function renderProfileLine() {
+  const p = [];
+  if (profile.пол) p.push(`пол: ${profile.пол}`);
+  if (profile.возраст) p.push(`возраст: ${profile.возраст}`);
+  if (profile.рост) p.push(`рост: ${profile.рост} см`);
+  const w = latestWeight(); if (w) p.push(`вес: ${w} кг`);
+  document.getElementById("profile-line").textContent =
+    p.length ? p.join(" · ") : "профиль не заполнен — продиктуй боту «пол…», «возраст…», «рост…»";
+}
+function toISO(d) { const [a, b, c] = d.split("."); return `${c}-${b}-${a}`; }
+
+// ---------- логика активности записей ----------
+// Для зоны+стороны на дату возвращает активные записи с учётом фильтров плоскости/системы.
+function matchingRecords(zone, side, dateStr) {
+  const out = [];
+  const recs = journalRows.filter(r => r.зона === zone && (r.сторона || "") === (side || ""));
+
+  // --- самочувствие: «пишем светим» — активна запись именно этого дня ---
+  if (activePlane === "оба" || activePlane === "самочувствие") {
+    const today = recs.filter(r => r.плоскость === "самочувствие" && r.дата === dateStr);
+    // если в этот день по зоне+системе есть «снят» — не светим
+    for (const r of today) {
+      if (activeSystem !== "все" && r.система !== activeSystem) continue;
+      if (r.действие === "снят") continue;
+      const снятПозже = today.some(x => x.система === r.система && x.действие === "снят");
+      if (!снятПозже) out.push(r);
+    }
+  }
+
+  // --- диагноз: висит, пока по той же системе не пришёл «отменён»/«снят» ---
+  if (activePlane === "оба" || activePlane === "диагноз") {
+    const diag = recs.filter(r => r.плоскость === "диагноз" && toISO(r.дата) <= toISO(dateStr));
+    const bySystem = {};
+    for (const r of diag) {
+      if (activeSystem !== "все" && r.система !== activeSystem) continue;
+      bySystem[r.система] = bySystem[r.система] || [];
+      bySystem[r.система].push(r);
+    }
+    for (const sys of Object.keys(bySystem)) {
+      const arr = bySystem[sys].sort((a, b) => toISO(a.дата).localeCompare(toISO(b.дата)));
+      const last = arr[arr.length - 1];
+      if (last.действие !== "отменён" && last.действие !== "снят") out.push(last);
+    }
+  }
+  return out;
+}
+
+// ---------- отрисовка дня ----------
+function renderDay(i) {
+  if (!timeline.length) return;
+  i = Math.max(0, Math.min(timeline.length - 1, i));
+  curIndex = i;
+  const dateStr = timeline[i];
+  document.getElementById("date-label").textContent = dateStr;
+  document.getElementById("day-slider").value = i;
+  document.getElementById("zone-tip").style.display = "none";
+
+  // видимость слоёв + прозрачность кожи (атлас)
+  applyLayers();
+
+  const dayJournal = [];
+  hotspots.forEach(h => {
+    const inSystem = activeSystem === "все" || h.systems.includes(activeSystem);
+    h.mesh.visible = inSystem;
+    if (!inSystem) return;
+
+    const recs = matchingRecords(h.zone, h.side, dateStr);
+    if (recs.length) dayJournal.push(...recs.map(r => ({ ...r, _zoneName: TAX.зоны[h.zone].назв + (h.side ? ` ${h.side}` : "") })));
+
+    const hasFeel = recs.some(r => r.плоскость === "самочувствие");
+    const hasDiag = recs.some(r => r.плоскость === "диагноз");
+    let color = IDLE_COLOR, scale = 0.55;   // спящие точки — мелкие неброские пины
+    if (hasFeel && hasDiag) { color = BOTH_COLOR; scale = 2; }
+    else if (hasFeel) { color = FEEL_COLOR; scale = 1.8; }
+    else if (hasDiag) { color = DIAG_COLOR; scale = 1.8; }
+    h.mesh.material.color.set(color);
+    h.mesh.scale.setScalar(scale);
+    h.mesh.material.opacity = (color === IDLE_COLOR) ? 0.5 : 1;
+    h.mesh.material.transparent = true;
+  });
+
+  renderJournalList(dayJournal);
+  renderDiaryExtras(dateStr);
+}
+
+function renderJournalList(items) {
+  const ul = document.getElementById("journal-list");
+  ul.innerHTML = "";
+  if (!items.length) { ul.innerHTML = '<li class="empty">жалоб/диагнозов нет</li>'; return; }
+  items.forEach(r => {
+    const li = document.createElement("li");
+    const color = r.плоскость === "диагноз" ? "var(--diag)" : "var(--feel)";
+    const sysName = TAX.системы[r.система] ? TAX.системы[r.система].назв : r.система;
+    const extra = [r.что, r.характер, r.сила && ("сила " + r.сила)].filter(Boolean).join(", ");
+    li.innerHTML = `<span class="dot" style="background:${color}"></span>` +
+      `<b>${r._zoneName}</b> · ${sysName}${extra ? " — " + extra : ""}`;
+    ul.appendChild(li);
+  });
+}
+
+function renderDiaryExtras(dateStr) {
+  const row = diaryRows.find(r => r.date === dateStr);
+  document.getElementById("note-text").textContent =
+    row ? (row.заметки || row.самочувствие || "(нет дневниковых записей)") : "(нет дневниковых записей)";
+  const medList = document.getElementById("med-list");
+  medList.innerHTML = "";
+  const meds = row ? (row.лекарства || "").split("\n").map(s => s.trim()).filter(Boolean) : [];
+  if (!meds.length) { medList.innerHTML = '<li class="empty">лекарств не отмечено</li>'; return; }
+  meds.forEach(m => { const li = document.createElement("li"); li.textContent = m; medList.appendChild(li); });
+}
+
+// ---------- слайдер + play ----------
+function setupSlider() {
+  const slider = document.getElementById("day-slider");
+  slider.max = Math.max(0, timeline.length - 1);
+  slider.value = timeline.length - 1;
+  slider.oninput = () => renderDay(Number(slider.value));
+
+  const ticks = document.getElementById("ticks");
+  const tickRow = document.getElementById("tick-row");
+  ticks.innerHTML = ""; tickRow.innerHTML = "";
+  timeline.forEach((d, i) => {
+    const [day] = d.split(".");
+    if (day === "01" || i === 0 || i === timeline.length - 1) {
+      const opt = document.createElement("option"); opt.value = i; ticks.appendChild(opt);
+      const span = document.createElement("span"); span.textContent = d; tickRow.appendChild(span);
+    }
+  });
+  document.getElementById("play-btn").onclick = togglePlay;
+}
+function togglePlay() {
+  const btn = document.getElementById("play-btn");
+  if (playTimer) { clearInterval(playTimer); playTimer = null; btn.textContent = "▶ Play"; return; }
+  btn.textContent = "⏸ Пауза";
+  const slider = document.getElementById("day-slider");
+  playTimer = setInterval(() => {
+    let next = Number(slider.value) + 1;
+    if (next > timeline.length - 1) next = 0;
+    renderDay(next);
+  }, Number(document.getElementById("speed").value));
+}
+document.getElementById("speed").addEventListener("input", () => { if (playTimer) { togglePlay(); togglePlay(); } });
+
+// ---------- переключатели систем/плоскостей ----------
+function buildSystemTabs() {
+  const box = document.getElementById("system-tabs");
+  for (const [key, s] of Object.entries(TAX.системы)) {
+    const el = document.createElement("div");
+    el.className = "tab";
+    el.dataset.system = key;
+    el.textContent = `${s.иконка} ${s.назв}`;
+    box.appendChild(el);
+  }
+  box.addEventListener("click", (e) => {
+    const tab = e.target.closest(".tab"); if (!tab) return;
+    activeSystem = tab.dataset.system;
+    box.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t === tab));
+    renderDay(curIndex);
+  });
+}
+function bindPlaneTabs() {
+  const box = document.getElementById("plane-tabs");
+  box.addEventListener("click", (e) => {
+    const tab = e.target.closest(".tab"); if (!tab) return;
+    activePlane = tab.dataset.plane;
+    box.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t === tab));
+    renderDay(curIndex);
+  });
+}
+
+// Быстрые виды камеры (как в анатомических атласах)
+function setView(v) {
+  const p = { front: [0, 1.6, 4.4], back: [0, 1.6, -4.4], left: [-4.4, 1.6, 0.2], right: [4.4, 1.6, 0.2] }[v];
+  if (!p || !camera) return;
+  camera.position.set(p[0], p[1], p[2]);
+  controls.target.set(0, 1.5, 0); controls.update();
+}
+// Панель атласа: слои, прозрачность кожи, пол, виды
+function bindAtlasControls() {
+  document.querySelectorAll("#atlas-bar input[data-layer]").forEach(cb => {
+    cb.checked = layerOn[cb.dataset.layer];
+    cb.addEventListener("change", () => { layerOn[cb.dataset.layer] = cb.checked; applyLayers(); });
+  });
+  const op = document.getElementById("skin-opacity");
+  if (op) { op.value = Math.round(skinOpacity * 100); op.addEventListener("input", () => { skinOpacity = op.value / 100; applyLayers(); }); }
+  const sx = document.getElementById("sex-toggle");
+  if (sx) sx.addEventListener("click", () => setSex(currentSex === "мужской" ? "женский" : "мужской"));
+  document.querySelectorAll("#atlas-bar button[data-view]").forEach(b => b.addEventListener("click", () => setView(b.dataset.view)));
+  // сечение
+  const ca = document.getElementById("clip-axis"), cp = document.getElementById("clip-pos");
+  if (ca) ca.addEventListener("change", applyClip);
+  if (cp) cp.addEventListener("input", applyClip);
+  // поиск структуры
+  const ss = document.getElementById("struct-search");
+  if (ss) ss.addEventListener("change", () => searchStructure(ss.value));
+}
+
+// Плоскость-сечения: режет все материалы (renderer.clippingPlanes — глобально).
+function applyClip() {
+  const axis = document.getElementById("clip-axis").value;
+  const pct = (+document.getElementById("clip-pos").value) / 100; // -1..1
+  if (axis === "off") { renderer.clippingPlanes = []; return; }
+  // диапазоны тела в мировых координатах
+  const R = { x: [-1.5, 1.5, [1, 0, 0]], y: [0.0, 2.9, [0, 1, 0]], z: [-0.6, 0.6, [0, 0, 1]] }[axis];
+  const coord = (R[0] + R[1]) / 2 + pct * (R[1] - R[0]) / 2;
+  clipPlane.normal.set(R[2][0], R[2][1], R[2][2]);
+  clipPlane.constant = coord;   // режем сторону, где normal·p > coord... точнее normal·p + (-coord) < 0
+  clipPlane.constant = -coord;
+  renderer.clippingPlanes = [clipPlane];
+}
+
+// Список имён структур для автодополнения поиска.
+function buildStructList() {
+  const dl = document.getElementById("struct-list");
+  if (!dl) return;
+  const names = new Set(labelMeshes.map(x => x.name));
+  if (TAX) for (const z of Object.values(TAX.зоны)) names.add(z.назв);
+  dl.innerHTML = "";
+  [...names].sort((a, b) => a.localeCompare(b)).forEach(n => {
+    const o = document.createElement("option"); o.value = n; dl.appendChild(o);
+  });
+}
+
+// Поиск структуры по названию: включить слой, подсветить, подлететь камерой.
+function searchStructure(q) {
+  q = (q || "").trim().toLowerCase();
+  if (!q) return;
+  const hit = labelMeshes.find(x => x.name.toLowerCase() === q) || labelMeshes.find(x => x.name.toLowerCase().includes(q));
+  const tip = document.getElementById("zone-tip");
+  if (!hit) { if (tip) { tip.innerHTML = "ничего не найдено"; tip.style.display = "block"; } return; }
+  // включить слой структуры
+  if (!layerOn[hit.layer]) {
+    layerOn[hit.layer] = true;
+    const cb = document.querySelector(`#atlas-bar input[data-layer="${hit.layer}"]`);
+    if (cb) cb.checked = true;
+    applyLayers();
+  }
+  // снять прежнюю подсветку
+  if (highlightMesh && highlightMesh.material) highlightMesh.material.emissive && highlightMesh.material.emissive.setHex(0x000000);
+  highlightMesh = hit.mesh;
+  if (highlightMesh.material && highlightMesh.material.emissive) highlightMesh.material.emissive.setHex(0x3344ff);
+  // подлёт камеры
+  const p = new THREE.Vector3(); highlightMesh.getWorldPosition(p);
+  controls.target.copy(p);
+  const dir = new THREE.Vector3().subVectors(camera.position, p).normalize();
+  camera.position.copy(p).addScaledVector(dir, 1.6);
+  controls.update();
+  if (tip) { tip.innerHTML = `<b>${hit.name}</b> · найдено`; tip.style.display = "block"; }
+}
+
+// ---------- тест-хук: показать подставные данные без Google-входа ----------
+// Безопасно: только отрисовка переданных строк журнала, ничего не пишет и не шлёт.
+window.__inject = (J, diary = []) => {
+  journalRows = J || [];
+  diaryRows = diary;
+  const dates = new Set([...journalRows.map(r => r.дата), ...diaryRows.map(r => r.date)]);
+  timeline = [...dates].sort((a, b) => toISO(a).localeCompare(toISO(b)));
+  if (!timeline.length) timeline = [new Date().toLocaleDateString("ru-RU")];
+  document.getElementById("login-screen").style.display = "none";
+  document.getElementById("app").classList.add("ready");
+  onResize();
+  setupSlider();
+  renderDay(timeline.length - 1);
+};
+
+// ---------- init ----------
+async function boot() {
+  try {
+    const resp = await fetch("таксономия.json");
+    TAX = await resp.json();
+  } catch (e) {
+    document.getElementById("status").textContent = "Не удалось загрузить таксономию.json";
+    return;
+  }
+  // стартовые слои/прозрачность из URL: ?layers=скелет,органы&skin=30 (и для deep-link, и для тестов)
+  const q0 = new URLSearchParams(location.search);
+  const LA = { skin: "кожа", muscle: "мышцы", muscles: "мышцы", bone: "скелет", bones: "скелет", skeleton: "скелет", organ: "органы", organs: "органы" };
+  if (q0.has("layers")) { const set = new Set(q0.get("layers").split(",").map(s => LA[s] || s)); for (const k of Object.keys(layerOn)) layerOn[k] = set.has(k); }
+  if (q0.has("skin")) skinOpacity = Math.max(0, Math.min(1, (+q0.get("skin") || 0) / 100));
+
+  init3D();
+  buildHotspots();
+  buildSystemTabs();
+  bindPlaneTabs();
+  bindAtlasControls();
+  // сечение из URL (deep-link/тест): ?clip=y&clippos=-20
+  if (q0.has("clip")) {
+    const ax = document.getElementById("clip-axis"), po = document.getElementById("clip-pos");
+    if (ax) { ax.value = q0.get("clip"); po.value = q0.get("clippos") || "0"; applyClip(); }
+  }
+
+  // Демо-режим: открыть index.html?demo — показать примеры без Google-входа.
+  if (new URLSearchParams(location.search).has("demo")) {
+    const сегодня = new Date().toLocaleDateString("ru-RU");
+    const нед_назад = new Date(Date.now() - 6 * 864e5).toLocaleDateString("ru-RU");
+    const demoSex = (new URLSearchParams(location.search).get("sex") || "").startsWith("ж") ? "женский" : "мужской";
+    profile = { пол: demoSex, возраст: "35", рост: demoSex === "женский" ? "168" : "180" };
+    updateGenitals(profile.пол);
+    renderProfileLine();
+    window.__inject([
+      { дата: сегодня, плоскость: "самочувствие", система: "мышцы", зона: "плечо", сторона: "прав", что: "боль", характер: "тянет", сила: "3", действие: "добавлен", текст: "тянет правое плечо второй день, несильно" },
+      { дата: сегодня, плоскость: "самочувствие", система: "дыхание", зона: "горло", сторона: "", что: "першит", характер: "", сила: "3", действие: "добавлен", текст: "горло першит" },
+      { дата: нед_назад, плоскость: "диагноз", система: "пищеварение", зона: "желудок", сторона: "", что: "гастрит", характер: "", сила: "", действие: "добавлен", текст: "врач поставил гастрит" },
+    ]);
+    return;
+  }
+
+  window.addEventListener("load", initSignin);
+  if (window.google && google.accounts) initSignin();
+}
+boot();
+</script>
+</body>
+</html>
